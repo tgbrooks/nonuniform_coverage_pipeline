@@ -1,0 +1,233 @@
+import pathlib
+from samples import samples
+
+samples_by_id = {sample['ID']: sample for sample in samples}
+sample_ids = [s['ID'] for s in samples]
+tissues = list(set(sample['tissue'] for sample in samples))
+samples_by_tissue = {tissue: [s['ID'] for s in samples if s['tissue'] == tissue] for tissue in tissues}
+
+RCLONE_REMOTE = "aws_public" # Must first run `rclone config` and set up a remote with this name for uploading trackhubs to
+BUCKET_NAME = "itmat.data" # Bucket to upload to with rclone for trackhubs
+BUCKET_DIR = "PCR_cycle_count"
+
+def num_reads(sample_id):
+   # Returns 1 if single-end and 2 if paired-end
+   fastq_dir = str(checkpoints.download_srx.get(sample_id = sample_id).output)
+   fastq = list(pathlib.Path(fastq_dir).glob("*.fastq"))[0].name
+   return 2 if "_" in fastq else 1
+
+def can_alpine(sample_id):
+  # Alpine requires paired-end data
+  return num_reads(sample_id) > 1
+
+def get_readlen(sample_id):
+  fastq_dir = pathlib.Path(str(checkpoints.download_srx.get(sample_id = sample_id).output))
+  fastq_file = list(fastq_dir.glob("*.fastq"))[0]
+  with open(fastq_file) as f:
+    f.readline()
+    read = f.readline() 
+    return len(read) - 1
+  #with open(f"data/{sample_id}/bam/Log.final.out") as f:
+  #  for line in f:
+  #    if "Average input read length" in line:
+  #      star_read_len = int(line.split("|")[1].strip())
+  #      n = num_reads(sample_id)
+  #      return star_read_len // n # If paired-end, STAR reports both reads summed together
+  #  raise Exception(f"Could not identify a read length for {sample_id}")
+
+    
+rule all:
+    input:
+        expand("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam", sample_id = sample_ids),
+        expand("results/{sample_id}.coverage.fwd.bw", sample_id = sample_ids),
+        expand("results/{sample_id}.coverage.rev.bw", sample_id = sample_ids),
+        expand("results/{sample_id}.coverage.unstranded.bw", sample_id = sample_ids),
+        "data/liver/high_expressed_single_isoform_genes.txt",
+        "results/url.txt",
+        "results/alpine/liver/",
+        "results/alpine_fit_plots/liver/",
+        expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = sample_ids),
+
+rule fetch_srr_ids:
+    output:
+        "data/{sample_id}/SRR.txt"
+    shell:
+        "esearch -db sra -query {wildcards.sample_id} | efetch -format docsum |xtract -pattern DocumentSummary -element Run@acc > {output}"
+
+checkpoint download_srx:
+    input:
+        "data/{sample_id}/SRR.txt"
+    output:
+        directory("data/{sample_id}/fastq")
+    resources:
+      ncbi_download = 1
+    shell:
+        # TODO: support multiple SRRs for a single SRX?
+        "fasterq-dump -A `cat {input}` -O {output} --split-3"
+
+checkpoint make_bam:
+    input:
+        genome = "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102/",
+        reads = "data/{sample_id}/fastq",
+    output:
+        bam = protected("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam"),
+        quants = protected("data/{sample_id}/bam/ReadsPerGene.out.tab"),
+        log = protected("data/{sample_id}/bam/Log.final.out"),
+    params:
+        outdir = "data/{sample_id}/bam/",
+    threads: 6
+    resources:
+        mem_mb = 36_000,
+    run:
+        nr = num_reads(wildcards.sample_id)
+        cmd = f"STAR --runThreadN {threads} --genomeDir {input.genome} --readFilesIn `find {input.reads}/*.fastq | head -n {nr}` --outFileNamePrefix {params.outdir} --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts"
+        shell(cmd)
+
+rule make_coverage:
+    input:
+        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam"
+    output:
+        "data/{sample_id}/coverage.{strand}.cov",
+    params:
+        strand = lambda wildcards: {"fwd": "-strand +", "rev": "-strand -", "unstranded": ""}[wildcards.strand],
+        name = lambda wildcards: samples_by_id[wildcards.sample_id]['name'],
+    resources:
+        mem_mb = 24_000,
+    shell:
+        "bedtools genomecov -ibam {input} -bga -split {params.strand} -trackline  -trackopts 'name=\"{params.name} {wildcards.strand}\"' | bedtools sort > {output}"
+
+rule make_bigwig:
+    input:
+      cov = "data/{sample_id}/coverage.{strand}.cov",
+      sizes = "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102/chrNameLength.txt"
+    output:
+      "results/{sample_id}.coverage.{strand}.bw"
+    resources:
+      mem_mb = 24_000,
+    shell:
+      "bedGraphToBigWig {input.cov} {input.sizes} {output}"
+
+rule upload_coverage:
+  input:
+      expand("results/{sample_id}.coverage.{strand}.bw", sample_id = sample_ids, strand = ["fwd", "rev"])
+  output:
+    url = "results/url.txt"
+  run:
+    shell(f"rclone copy results {RCLONE_REMOTE}:{BUCKET_NAME}/{BUCKET_DIR}/")
+    pathlib.Path(output.url).write_text(f"https://{BUCKET_NAME}.s3.amazonaws.com/{BUCKET_DIR}/\n")
+
+rule index_BAMS:
+    input:
+        bam = "{file}.sortedByCoord.out.bam"
+    output:
+        bam = "{file}.sortedByCoord.out.bam.bai"
+    resources:
+        mem_mb = 4_000
+    shell:
+        "samtools index {input}"
+
+rule make_ensembldb:
+    input:
+        gtf = "/project/itmatlab/index/STAR-2.7.6a_indexes/GRCm38.ensemblv102/Mus_musculus.GRCm38.102.gtf",
+    output:
+        sqlite = "data/Mus_musculus.GRCm38.102.gtf.sqlite"
+    script:
+        "scripts/make_ensembldb.R"
+
+rule select_alpine_transcripts:
+    input:
+        quants = lambda wildcards: expand("data/{sample_id}/bam/ReadsPerGene.out.tab", sample_id=samples_by_tissue[wildcards.tissue]),
+        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+    output:
+        outfile = "data/{tissue}/high_expressed_single_isoform_genes.txt"
+    script:
+        "scripts/select_alpine_transcripts.py"
+
+rule run_alpine:
+    input:
+        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
+        bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
+        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
+        fastq_dir = "data/{sample_id}/fastq",
+    output:
+        modelfile = protected("data/{sample_id}/alpine.model.rda"),
+    params:
+      readlength =  lambda wildcards: get_readlen(wildcards.sample_id)
+    resources:
+        mem_mb = 48_000,
+    script:
+        "scripts/run_alpine.R"
+
+rule gen_alpine_rnafold_fragtypes:
+    input:
+        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
+        bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
+        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
+        fastq_dir = "data/{sample_id}/fastq",
+    output:
+        fragtypes = protected("data/{sample_id}/alpine_rnafold.fragtypes.rda"),
+    params:
+      readlength =  lambda wildcards: get_readlen(wildcards.sample_id)
+    resources:
+        mem_mb = 48_000,
+    script:
+        "scripts/gen_alpine_rnafold_fragtypes.R"
+
+
+rule run_alpine_rnafold:
+    input:
+        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
+        bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
+        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
+        fastq_dir = "data/{sample_id}/fastq",
+        fragtypes = "data/{sample_id}/alpine_rnafold.fragtypes.rda"
+    output:
+        modelfile = protected("data/{sample_id}/alpine_rnafold.model.rda"),
+    params:
+      readlength =  lambda wildcards: get_readlen(wildcards.sample_id)
+    resources:
+        mem_mb = 48_000,
+    script:
+        "scripts/run_alpine_rnafold.R"
+
+
+rule compare_alpine:
+    input:
+        models = lambda wildcards: expand("data/{sample_id}/alpine.model.rda", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
+        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+    output:
+        outdir = directory("results/alpine/{tissue}/"),
+    resources:
+        mem_mb = 6_000,
+    script:
+        "scripts/compare_alpine.R"
+
+rule compute_alpine_fits:
+    input:
+        bam = ["data/{sample_id}/bam/Aligned.sortedByCoord.out.bam"],
+        models = ["data/{sample_id}/alpine.model.rda"],
+        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+    output:
+        outfile = "results/alpine_fits/{tissue}/{sample_id}.coverage_table.txt",
+    resources:
+        mem_mb = 46_000,
+    script:
+        "scripts/compute_alpine_fits.R"
+
+rule plot_alpine_fits:
+    input:
+        cov_tables = lambda wildcards: expand("results/alpine_fits/{{tissue}}/{sample_id}.coverage_table.txt", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
+        models = lambda wildcards: expand("data/{sample_id}/alpine.model.rda", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
+        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+    output:
+        outdir = directory("results/alpine_fit_plots/{tissue}/"),
+    resources:
+        mem_mb = 24_000,
+    script:
+        "scripts/plot_alpine_fits.R"

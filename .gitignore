@@ -1,0 +1,9 @@
+data
+logs
+results
+temp
+*.swp
+*.swo
+.venv
+.snakemake
+__pycache__
