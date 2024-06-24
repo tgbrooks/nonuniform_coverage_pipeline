@@ -46,7 +46,7 @@ rule all:
         "results/url.txt",
         "results/alpine/liver/",
         "results/alpine_fit_plots/liver/",
-        expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = sample_ids),
+        lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
 
 rule fetch_srr_ids:
     output:
@@ -161,20 +161,16 @@ rule run_alpine:
 
 rule gen_alpine_rnafold_fragtypes:
     input:
-        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
-        bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
         ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
-        transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
-        fastq_dir = "data/{sample_id}/fastq",
+        transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
     output:
-        fragtypes = protected("data/{sample_id}/alpine_rnafold.fragtypes.rda"),
+        fragtypes = protected("data/{tissue}/alpine_rnafold.fragtypes.rda"),
     params:
-      readlength =  lambda wildcards: get_readlen(wildcards.sample_id)
+      readlength = 150 # Doesn't actually matter
     resources:
-        mem_mb = 48_000,
+        mem_mb = 32_000,
     script:
         "scripts/gen_alpine_rnafold_fragtypes.R"
-
 
 rule run_alpine_rnafold:
     input:
@@ -183,11 +179,12 @@ rule run_alpine_rnafold:
         ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
         fastq_dir = "data/{sample_id}/fastq",
-        fragtypes = "data/{sample_id}/alpine_rnafold.fragtypes.rda"
+        fragtypes = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/alpine_rnafold.fragtypes.rda"
     output:
         modelfile = protected("data/{sample_id}/alpine_rnafold.model.rda"),
     params:
-      readlength =  lambda wildcards: get_readlen(wildcards.sample_id)
+      readlength =  150 # Arbitrary, doesn't actually affect things
+      #readlength = lambda wildcards: get_readlen(wildcards.sample_id)
     resources:
         mem_mb = 48_000,
     script:

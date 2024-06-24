@@ -9,7 +9,6 @@ library(r2r)
 #readlength <- 151
 #modelfile <- "results/alpine_rnafold/SRX16386863/model.rda"
 #ensembldb_sqlite <- "data/Mus_musculus.GRCm38.102.gtf.sqlite"
-#bam.files <- list("data/SRX16386863/bam/Aligned.sortedByCoord.out.bam")
 #transcript_file <- "data/liver/high_expressed_single_isoform_genes.txt"
 
 RNA_FOLD_RESOLUTION <- 25
@@ -18,10 +17,7 @@ sample_id <- snakemake@wildcards$sample_id
 readlength <- snakemake@params$readlength 
 modelfile <- snakemake@output$modelfile
 ensembldb_sqlite <- snakemake@input$ensdb
-bam.files <- list(snakemake@input$bam)
 transcript_file <- snakemake@input$transcripts
-
-names(bam.files) <- sample_id
 
 txdb <- EnsDb(ensembldb_sqlite)
 txdf <- transcripts(txdb, return.type="DataFrame")
@@ -132,7 +128,7 @@ buildFragtypes <- function (exons, genome, readlength, minsize, maxsize, gc = TR
         function (frag) {
           # Round to the specified resolution
           round_start <- round(frag$start/RNA_FOLD_RESOLUTION)*RNA_FOLD_RESOLUTION
-          round_end <- round(frag$end/RNA_FOLD_RESOLUTION)*RNA_FOLD_RESOLUTION
+          round_end <- min(round(frag$end/RNA_FOLD_RESOLUTION)*RNA_FOLD_RESOLUTION, length(tx.dna))
           if (is.null(mfe_store[[c(round_start, round_end)]])) {
             # Compute value
             print(paste("Computing for", round_start, round_end))
@@ -175,5 +171,4 @@ for(gene in names(fragtypes)) {
 }
 
 
-saveRDS(fragtypes, snakemake@output$fragtypes))
-
+saveRDS(fragtypes, snakemake@output$fragtypes)
