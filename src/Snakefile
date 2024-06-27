@@ -46,7 +46,8 @@ rule all:
         "results/url.txt",
         "results/alpine/liver/",
         "results/alpine_fit_plots/liver/",
-        lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
+        "results/alpine_rnafold_fits/liver/",
+        #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
 
 rule fetch_srr_ids:
     output:
@@ -183,13 +184,11 @@ rule run_alpine_rnafold:
     output:
         modelfile = protected("data/{sample_id}/alpine_rnafold.model.rda"),
     params:
-      readlength =  150 # Arbitrary, doesn't actually affect things
-      #readlength = lambda wildcards: get_readlen(wildcards.sample_id)
+      readlength = lambda wildcards: get_readlen(wildcards.sample_id)
     resources:
         mem_mb = 48_000,
     script:
         "scripts/run_alpine_rnafold.R"
-
 
 rule compare_alpine:
     input:
@@ -228,3 +227,17 @@ rule plot_alpine_fits:
         mem_mb = 24_000,
     script:
         "scripts/plot_alpine_fits.R"
+
+rule plot_alpine_rnafold_fits:
+    input:
+        bam = lambda wildcards: expand("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
+        models = lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
+        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+        fragtypes = "data/{tissue}/alpine_rnafold.fragtypes.rda",
+    output:
+        outdir = directory("results/alpine_rnafold_fits/{tissue}/"),
+    resources:
+        mem_mb = 46_000,
+    script:
+        "scripts/plot_alpine_rnafold_fits.R"

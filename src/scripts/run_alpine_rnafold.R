@@ -51,6 +51,22 @@ library(BSgenome.Mmusculus.ENSEMBL.GRCm38)
 
 fragtypes <- readRDS(snakemake@input$fragtypes)
 
+# Fix the readlength of the fragtypes
+# To avoid repeated work, we only compute fragtypes once and update its readlength to match the study
+fragtypes <- sapply(
+    names(fragtypes),
+    function(gene.name) {
+      ft <- fragtypes[[gene.name]]
+      exons <- ebt.fit[[gene.name]]
+      map <- alpine:::mapTxToGenome(exons)
+      ft$gread1end <- alpine:::txToGenome(ft$start + readlength - 1, map)
+      ft$gread2start <- alpine:::txToGenome(ft$end - readlength + 1, map)
+      ft
+    },
+    simplify = FALSE,
+    USE.NAMES = TRUE
+)
+
 # Specify the models
 models <- list(
   "all" = list(
