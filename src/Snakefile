@@ -299,3 +299,16 @@ rule plot_alpine_rnafold_fits:
         mem_mb = 46_000,
     script:
         "scripts/plot_alpine_rnafold_fits.R"
+
+rule pcr_copy_count_groups:
+    input:
+        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
+        bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
+    output:
+        bam = "data/{sample_id}/umi_groups/grouped.Aligned.sortedByCoord.out.bam",
+    params:
+        dir = "data/{sample_id}/umi_groups/",
+    resources:
+        mem_mb = 48_000
+    shell:
+        "mkdir -p {params.dir} && umi_tools group --output-bam --unpaired-reads discard --chimeric-pairs discard --umi-separator=_ --paired --multimapping-detection-method=NH -I {input.bam}  -S {output.bam}"
