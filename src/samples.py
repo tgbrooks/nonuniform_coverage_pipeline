@@ -5,30 +5,35 @@ samples = [
         "PCR_cycle_count": 8,
         "study": "PRJNA416930",
         "tissue": "testis",
+        "UMI": { "read1": "NNNNNNNN", "read2": "NNNNNNNN" },
     },
     {
         "ID": "SRX3357956",
         "PCR_cycle_count": 9,
         "study": "PRJNA416930",
         "tissue": "testis",
+        "UMI": { "read1": "NNNNNNNN", "read2": "NNNNNNNN" },
     },
     {
         "ID": "SRX3357957",
         "PCR_cycle_count": 10,
         "study": "PRJNA416930",
         "tissue": "testis",
+        "UMI": { "read1": "NNNNNNNN", "read2": "NNNNNNNN" },
     },
     {
         "ID": "SRX3357958",
         "PCR_cycle_count": 11,
         "study": "PRJNA416930",
         "tissue": "testis",
+        "UMI": { "read1": "NNNNNNNN", "read2": "NNNNNNNN" },
     },
     {
         "ID": "SRX3357959",
         "PCR_cycle_count": 13,
         "study": "PRJNA416930",
         "tissue": "testis",
+        "UMI": { "read1": "NNNNNNNN", "read2": "NNNNNNNN" },
     },
 
     # Ribo-Zero Mouse Liver studies

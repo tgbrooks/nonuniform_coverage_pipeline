@@ -16,6 +16,12 @@ def num_reads(sample_id):
    fastq = list(pathlib.Path(fastq_dir).glob("*.fastq"))[0].name
    return 2 if "_" in fastq else 1
 
+def processed_fastq_files(sample_id):
+  if num_reads(sample_id) > 1:
+    return [f"data/{wildcards.sample_id}/processed_fastqs/R1.fastq", f"data/{wildcards.sample_id}/processed_fastqs/R2.fastq"]
+  else:
+    return ["data/{sample_id/processed_fastqs/R1.fastq"]
+
 def can_alpine(sample_id):
   # Alpine requires paired-end data
   return num_reads(sample_id) > 1
@@ -66,10 +72,64 @@ checkpoint download_srx:
         # TODO: support multiple SRRs for a single SRX?
         "fasterq-dump -A `cat {input}` -O {output} --split-3"
 
+rule process_fastqs:
+    input:
+        read_dir = "data/{sample_id}/fastq"
+    output:
+        read_dir = directory("data/{sample_id}/processed_fastqs/")
+    run:
+        sample = samples_by_id[wildcards.sample_id]
+        read_dir = pathlib.Path(input.read_dir)
+        out_dir = pathlib.Path(output.read_dir)
+        out_dir.mkdir()
+        if num_reads(wildcards.sample_id) > 1:
+            R1 = sorted([str(x) for x in read_dir.glob("*_1.fastq")])
+            R2 = sorted([str(x) for x in read_dir.glob("*_2.fastq")])
+            R1_out = out_dir / "R1.fastq"
+            R2_out = out_dir / "R2.fastq"
+
+            # concatenate
+            concat_R1 = out_dir / "R1.concat.fastq"
+            concat_R2 = out_dir / "R2.concat.fastq"
+            shell(f"cat {' '.join(R1)} > {concat_R1}")
+            shell(f"cat {' '.join(R2)} > {concat_R2}")
+
+            # Extract UMIs
+            if 'UMI' in sample:
+              # Extract UMIs from sequence
+              log = out_dir / "extract.log"
+              R1_code = sample['UMI']['read1']
+              R2_code = sample['UMI']['read2']
+              shell(f"umi_tools extract --extract-method=string --bc-pattern {R1_code} --bc-pattern2 {R2_code} --read2-in {concat_R2} --read2-out {R2_out} -L {log} < {concat_R1} > {R1_out}")
+              concat_R1.unlink()
+              concat_R2.unlink()
+            else:
+              # Nothing to do
+              concat_R1.rename(R1_out)
+              concat_R2.rename(R2_out)
+        else:
+            R1 = sorted([str(x) for x in read_dir.glob("*.fastq")])
+            R1_out = out_dir / "R1.fastq"
+
+            # concatenate
+            concat_R1 = out_dir / "R1.concat.fastq"
+            shell(f"cat {' '.join(R1)} > {concat_R1}")
+
+            # Extract UMIs
+            if 'UMI' in sample:
+              # Extract UMIs from sequence
+              log = out_dir / "extract.log"
+              R1_code = sample['UMI']['read1']
+              shell(f"umi_tools extract --extract-method=string --bc-pattern {R1_code} -L {log} < {concat_R1} > {R1_out}")
+              concat_R1.unlink()
+            else:
+              # Nothing to do
+              concat_R1.rename(R1_out)
+
 checkpoint make_bam:
     input:
         genome = "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102/",
-        reads = "data/{sample_id}/fastq",
+        reads = "data/{sample_id}/processed_fastqs",
     output:
         bam = protected("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam"),
         quants = protected("data/{sample_id}/bam/ReadsPerGene.out.tab"),
@@ -81,7 +141,7 @@ checkpoint make_bam:
         mem_mb = 36_000,
     run:
         nr = num_reads(wildcards.sample_id)
-        cmd = f"STAR --runThreadN {threads} --genomeDir {input.genome} --readFilesIn `find {input.reads}/*.fastq | head -n {nr}` --outFileNamePrefix {params.outdir} --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts"
+        cmd = f"STAR --runThreadN {threads} --genomeDir {input.genome} --readFilesIn `find {input.reads} -name *fastq` --outFileNamePrefix {params.outdir} --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts"
         shell(cmd)
 
 rule make_coverage:
@@ -150,7 +210,6 @@ rule run_alpine:
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
         ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
-        fastq_dir = "data/{sample_id}/fastq",
     output:
         modelfile = protected("data/{sample_id}/alpine.model.rda"),
     params:
@@ -179,7 +238,6 @@ rule run_alpine_rnafold:
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
         ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
-        fastq_dir = "data/{sample_id}/fastq",
         fragtypes = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/alpine_rnafold.fragtypes.rda"
     output:
         modelfile = protected("data/{sample_id}/alpine_rnafold.model.rda"),
