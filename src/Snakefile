@@ -44,16 +44,18 @@ def get_readlen(sample_id):
     
 rule all:
     input:
-        expand("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam", sample_id = sample_ids),
-        expand("results/{sample_id}.coverage.fwd.bw", sample_id = sample_ids),
-        expand("results/{sample_id}.coverage.rev.bw", sample_id = sample_ids),
-        expand("results/{sample_id}.coverage.unstranded.bw", sample_id = sample_ids),
-        "data/liver/high_expressed_single_isoform_genes.txt",
-        "results/url.txt",
-        "results/alpine/liver/",
-        "results/alpine_fit_plots/liver/",
-        "results/alpine_rnafold_fits/liver/",
+        #expand("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam", sample_id = sample_ids),
+        #expand("results/{sample_id}.coverage.fwd.bw", sample_id = sample_ids),
+        #expand("results/{sample_id}.coverage.rev.bw", sample_id = sample_ids),
+        #expand("results/{sample_id}.coverage.unstranded.bw", sample_id = sample_ids),
+        expand("data/{sample_id}/umi_groups/grouped.Aligned.sortedByCoord.out.bam", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
+        #"data/liver/high_expressed_single_isoform_genes.txt",
+        #"results/url.txt",
+        #"results/alpine/liver/",
+        #"results/alpine_fit_plots/liver/",
+        #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
+        "results/testis/pcr_dupe_rate_coverage_plot/",
 
 rule fetch_srr_ids:
     output:
@@ -312,3 +314,32 @@ rule pcr_copy_count_groups:
         mem_mb = 48_000
     shell:
         "mkdir -p {params.dir} && umi_tools group --output-bam --unpaired-reads discard --chimeric-pairs discard --umi-separator=_ --paired --multimapping-detection-method=NH -I {input.bam}  -S {output.bam}"
+
+rule pcr_dupe_rate_coverage:
+    input:
+        bam = "data/{sample_id}/umi_groups/grouped.Aligned.sortedByCoord.out.bam",
+        bai = "data/{sample_id}/umi_groups/grouped.Aligned.sortedByCoord.out.bam.bai",
+        chrom_lengths = "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102/chrNameLength.txt"
+    output:
+        coverage = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed",
+        duped_coverage = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.duped_coveage.bed",
+        dupe_rate = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.pcr_dupe_rate_coverage.bed",
+    resources:
+        mem_mb = 12_000
+    shell:
+        "./scripts/pcr_dupe_rate_coverage_plot.py --bam_file {input.bam} --chrom_lengths {input.chrom_lengths} --out_cov_file {output.coverage} --out_duped_file {output.duped_coverage} --out_dupe_rate_file {output.dupe_rate}"
+
+rule plot_pcr_dupe_rate_coverage:
+    input:
+        coverage = expand("data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
+        dupe_rate = expand("data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.pcr_dupe_rate_coverage.bed", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
+        annotation = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+    output:
+        outdir = directory("results/{tissue}/pcr_dupe_rate_coverage_plot/")
+    params:
+      sample_ids = [s for s in sample_ids if 'UMI' in samples_by_id[s]],
+    resources:
+        mem_mb = 24_000
+    script:
+      "scripts/plot_pcr_dupe_rate_coverage.py"
