@@ -7,3 +7,4 @@ temp
 .venv
 .snakemake
 __pycache__
+Rplots.pdf
