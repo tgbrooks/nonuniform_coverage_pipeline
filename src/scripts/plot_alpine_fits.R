@@ -13,18 +13,18 @@ for (file in snakemake@input$cov_tables) {
 }
 cov_table <- bind_rows(cov_tables)
 
-sample_info <- read_tsv("results/sample_info.txt") |>
-    group_by(study) |>
-    mutate(sample_num = row_number()) |>
-    ungroup() |>
+sample_info <- read_tsv("results/sample_info.txt") %>%
+    group_by(study) %>%
+    mutate(sample_num = row_number()) %>%
+    ungroup() %>%
     mutate(sample_num = as.factor(sample_num))
 
 # Plot for the paper
 select_genes <- c("ENSMUST00000023559", "ENSMUST00000028995", "ENSMUST00000047973")
-select_cov <- cov_table[cov_table$gene %in% select_genes,] |>
-    left_join(sample_info, by=join_by(sample == ID)) |>
-    group_by(sample, gene) |>
-    mutate(rel_read_depth = actual / max(actual)) |>
+select_cov <- cov_table[cov_table$gene %in% select_genes,] %>%
+    left_join(sample_info, by=join_by(sample == ID)) %>%
+    group_by(sample, gene) %>%
+    mutate(rel_read_depth = actual / max(actual)) %>%
     ungroup()
 print(select_cov)
 ggplot(
