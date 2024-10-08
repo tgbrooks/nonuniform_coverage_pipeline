@@ -5,8 +5,14 @@ import polars as pl
 import matplotlib as mpl
 import matplotlib.pyplot as pyplot
 
-from samples import samples
-samples_by_id = {sample['ID']: sample for sample in samples}
+cycle_counts_by_id = {
+    "SRX3357955": 8,
+    "SRX3357956": 9,
+    "SRX3357957": 10,
+    "SRX3357958": 11,
+    "SRX3357959": 13,
+}
+
 
 outdir = pathlib.Path(snakemake.output.outdir)
 outdir.mkdir(exist_ok=True)
@@ -117,31 +123,68 @@ def get_cov_and_dupe_rate(gene_id, sample_id):
     return both
 
 ###### PLOT SELECT GENES TOGETHER
-fig, axes = pyplot.subplots(figsize=(12,1.5*len(sample_ids)), nrows=len(sample_ids), ncols=len(select_genes))
-for (sample_id, ax_row) in zip(sample_ids, axes):
-    for (gene_id, ax) in zip(select_genes, ax_row,):
+color_by_cycle_count = {
+    cycles: mpl.colormaps['viridis']((cycles-8)/5)
+        for cycles in [8,9,10,11,13]
+}
+handles = {}
+for format in ["norm", "raw"]:
+    fig, axes = pyplot.subplots(
+        figsize=(10,4),
+        nrows=2,
+        ncols=len(select_genes),
+        sharex='col',
+        gridspec_kw=dict(right=0.85),
+    )
+    for (i, gene_id) in enumerate(select_genes):
         gene_name = gene.filter(gene_id = gene_id)['gene_name'][0]
-        cov_and_dupe = get_cov_and_dupe_rate(gene_id, sample_id)
-        mask = np.array(cov_and_dupe['mask']).astype(bool)
-        masked_dupe_rate = np.array(cov_and_dupe['dupe_rate']).astype(float)
-        masked_dupe_rate[~mask] = float("nan")
-        dupe_rate_lines, = ax.plot(cov_and_dupe['loc'], masked_dupe_rate, color="b", label="dupe rate")
-        ax_true = ax.twinx()
-        coverage_lines, = ax_true.plot(cov_and_dupe['loc'], cov_and_dupe['cov'], color="k", label="coverage")
-        if ax in axes[:,0]:
-            cycle_counts = samples_by_id[sample_id]['PCR_cycle_count']
-            ax.set_ylabel(f"{cycle_counts}cycles\nPCR dupe rate")
-        if ax in axes[:,-1]:
-            ax_true.set_ylabel("coverage")
-        if ax in axes[-1,:]:
-            ax.set_xlabel("loc")
-        if ax in axes[0,:]:
-            ax.set_title(f"{gene_id}\n{gene_name}")
-fig.legend(handles=[dupe_rate_lines, coverage_lines], loc = "lower right")
-fig.tight_layout()
-fig.savefig(outdir / f"select_genes.png", dpi=400)
-pyplot.close()
+        cov_ax = axes[0,i]
+        dupe_ax = axes[1,i]
+        all_cov_and_dupes = []
+        for sample_id in sample_ids:
+            cycle_count = cycle_counts_by_id[sample_id]
+            all_cov_and_dupes.append(
+                get_cov_and_dupe_rate(gene_id, sample_id)
+                    .with_columns(cycle_count = pl.lit(cycle_count))
+            )
+        all_cov_and_dupes = pl.concat(all_cov_and_dupes) \
+            .with_columns(
+                norm_cov = pl.col('cov') / pl.col('cov').mean().over("cycle_count"),
+                norm_dupe_rate = pl.col('dupe_rate') / pl.col('dupe_rate').mean().over("cycle_count"),
+            )
 
+        for (cycle_count, cov_and_dupe) in all_cov_and_dupes.group_by("cycle_count"):
+            if format == "raw":
+                h, = cov_ax.plot(cov_and_dupe['loc'], cov_and_dupe['cov'], color=color_by_cycle_count[cycle_count], label="coverage")
+
+                mask = np.array(cov_and_dupe['mask']).astype(bool)
+                masked_dupe_rate = np.array(cov_and_dupe['dupe_rate']).astype(float)
+                masked_dupe_rate[~mask] = float("nan")
+                dupe_ax.plot(cov_and_dupe['loc'], masked_dupe_rate, color=color_by_cycle_count[cycle_count], label="dupe rate")
+            else:
+                h, = cov_ax.plot(cov_and_dupe['loc'], cov_and_dupe['norm_cov'], color=color_by_cycle_count[cycle_count], label="coverage")
+
+                mask = np.array(cov_and_dupe['mask']).astype(bool)
+                masked_dupe_rate = np.array(cov_and_dupe['norm_dupe_rate']).astype(float)
+                masked_dupe_rate[~mask] = float("nan")
+                dupe_ax.plot(cov_and_dupe['loc'], masked_dupe_rate, color=color_by_cycle_count[cycle_count], label="dupe rate")
+            handles[cycle_count] = h
+
+        if i == 0:
+            cov_ax.set_ylabel("Coverage")
+            dupe_ax.set_ylabel("PCR dupe rate")
+        cov_ax.set_title(f"{gene_id}\n{gene_name}")
+        dupe_ax.set_xlabel("Position")
+    fig.legend(
+        handles=[handles[c] for c in color_by_cycle_count.keys()],
+        labels=[str(c) for c in color_by_cycle_count.keys()],
+        loc = "center right",
+        title = "PCR cycle count"
+    )
+    fig.tight_layout()
+    fig.savefig(outdir / f"select_genes.{format}.svg")
+    fig.savefig(outdir / f"select_genes.{format}.png")
+    pyplot.close()
 
 ###### PLOT INDIVIDUAL GENES
 for (gene_id, tx_id) in transcripts.iter_rows():
