@@ -44,7 +44,20 @@ samples = [
         "tissue": "liver",
     },
     {
+        "ID": "SRX4080520",
+        "study": "GSE77221",
+        "PCR_cycle_count": "unknown",
+        "tissue": "liver",
+    },
+    {
         "ID": "SRX6902444",
+        "study": "GSE138019",
+        "PCR_cycle_count": "unknown",
+        # Single-end, can't alpine
+        "tissue": "liver",
+    },
+    {
+        "ID": "SRX6902450",
         "study": "GSE138019",
         "PCR_cycle_count": "unknown",
         # Single-end, can't alpine
@@ -58,7 +71,20 @@ samples = [
         "tissue": "liver",
     },
     {
+        "ID": "SRX3304764",
+        "study": "GSE105413",
+        "PCR_cycle_count": "unknown",
+        # Single-end, can't alpine
+        "tissue": "liver",
+    },
+    {
         "ID": "SRX4393368",
+        "study": "GSE117134",
+        "PCR_cycle_count": "unknown",
+        "tissue": "liver",
+    },
+    {
+        "ID": "SRX4393369",
         "study": "GSE117134",
         "PCR_cycle_count": "unknown",
         "tissue": "liver",
@@ -70,7 +96,19 @@ samples = [
         "tissue": "liver",
     },
     {
+        "ID": "SRX16386864",
+        "study": "GSE208768",
+        "PCR_cycle_count": "unknown",
+        "tissue": "liver",
+    },
+    {
         "ID": "SRX14468350",
+        "study": "PRJNA816471",
+        "PCR_cycle_count": "unknown",
+        "tissue": "liver",
+    },
+    {
+        "ID": "SRX14468347",
         "study": "PRJNA816471",
         "PCR_cycle_count": "unknown",
         "tissue": "liver",
@@ -82,7 +120,19 @@ samples = [
         "tissue": "liver",
     },
     {
+        "ID": "SRX13396186",
+        "study": "PRJNA788430",
+        "PCR_cycle_count": "unknown",
+        "tissue": "liver",
+    },
+    {
         "ID": "SRX11694510",
+        "study": "PRJNA753198",
+        "PCR_cycle_count": "unknown",
+        "tissue": "liver"
+    },
+    {
+        "ID": "SRX11694499",
         "study": "PRJNA753198",
         "PCR_cycle_count": "unknown",
         "tissue": "liver"
@@ -129,3 +179,6 @@ samples = [
 
 for sample in samples:
     sample['name'] = f"{sample['ID']}.PCR={sample['PCR_cycle_count']}"
+
+# Check all unique
+assert len(set([s['ID'] for s in samples])) == len(samples)
