@@ -5,6 +5,9 @@ import polars as pl
 import matplotlib as mpl
 import matplotlib.pyplot as pyplot
 
+from samples import samples
+samples_by_id = {sample['ID']: sample for sample in samples}
+
 outdir = pathlib.Path(snakemake.output.outdir)
 outdir.mkdir(exist_ok=True)
 
@@ -25,6 +28,7 @@ for (cov_file, sample_id) in zip(cov_files, sample_ids):
         .with_columns(sample_id = pl.lit(sample_id))
     temp.append(cov)
 cov = pl.concat(temp)
+
 
 
 annotation_db = snakemake.input.annotation
@@ -52,9 +56,12 @@ transcripts = pl.concat((
         pl.read_csv(transcripts_file, separator="\t").select("gene_id", "transcript_id"),
 )).filter(pl.col("gene_id").is_first_distinct())
 
-for (gene_id, tx_id) in transcripts.iter_rows():
-    chrom = gene.filter(gene_id = gene_id)['seq_name'][0]
-    gene_name = gene.filter(gene_id = gene_id)['gene_name'][0]
+select_genes = ["ENSMUSG00000064351","ENSMUSG00000064367", "ENSMUSG00000064370",]
+
+def gene_to_exon_pos(gene_id):
+    gene_info = gene.filter(gene_id = gene_id)
+    chrom = gene_info['seq_name'][0]
+    tx_id = transcripts.filter(gene_id = gene_id)['transcript_id'][0]
     these_exons = (
         exons.join(tx2exon.filter(tx_id = tx_id), on="exon_id")
             .sort("exon_seq_start")
@@ -67,45 +74,84 @@ for (gene_id, tx_id) in transcripts.iter_rows():
             "chrom": chrom,
         }) for (start, end) in these_exons.select("exon_seq_start", "exon_seq_end").iter_rows()
     ])
+    return pos
+
+def get_cov_and_dupe_rate(gene_id, sample_id):
+    pos = gene_to_exon_pos(gene_id)
+
+    this_dupe_rate = dupe_rate.filter(pl.col("sample_id") == sample_id)
+    this_cov = cov.filter(pl.col("sample_id") == sample_id)
+
+    # Find the read depth/dupe_rates for each position
+    # note that the cov/dupe_rate files give a range (start-end)
+    # and so we have to join_asof to find the right range
+    this_cov = (pos
+        .join_asof(
+            this_cov,
+            left_on = "pos",
+            right_on = "start",
+            by = "chrom",
+        )
+        .filter(
+            pl.col('pos') < pl.col('end'),
+        )
+    )
+    this_dupe_rate = (pos
+        .join_asof(
+            this_dupe_rate,
+            left_on = "pos",
+            right_on = "start",
+            by = "chrom"
+        )
+        .filter(
+            pl.col('pos') < pl.col('end'),
+        )
+    )
+
+    both = (
+        this_cov.select('pos', pl.col('value').alias("cov"))
+            .join(this_dupe_rate.select('pos', pl.col('value').alias('dupe_rate')), on="pos", validate="1:1")
+            .with_row_index(name="loc")
+            .with_columns(mask = pl.col('cov') > 100)
+    )
+    return both
+
+###### PLOT SELECT GENES TOGETHER
+fig, axes = pyplot.subplots(figsize=(12,1.5*len(sample_ids)), nrows=len(sample_ids), ncols=len(select_genes))
+for (sample_id, ax_row) in zip(sample_ids, axes):
+    for (gene_id, ax) in zip(select_genes, ax_row,):
+        gene_name = gene.filter(gene_id = gene_id)['gene_name'][0]
+        cov_and_dupe = get_cov_and_dupe_rate(gene_id, sample_id)
+        mask = np.array(cov_and_dupe['mask']).astype(bool)
+        masked_dupe_rate = np.array(cov_and_dupe['dupe_rate']).astype(float)
+        masked_dupe_rate[~mask] = float("nan")
+        dupe_rate_lines, = ax.plot(cov_and_dupe['loc'], masked_dupe_rate, color="b", label="dupe rate")
+        ax_true = ax.twinx()
+        coverage_lines, = ax_true.plot(cov_and_dupe['loc'], cov_and_dupe['cov'], color="k", label="coverage")
+        if ax in axes[:,0]:
+            cycle_counts = samples_by_id[sample_id]['PCR_cycle_count']
+            ax.set_ylabel(f"{cycle_counts}cycles\nPCR dupe rate")
+        if ax in axes[:,-1]:
+            ax_true.set_ylabel("coverage")
+        if ax in axes[-1,:]:
+            ax.set_xlabel("loc")
+        if ax in axes[0,:]:
+            ax.set_title(f"{gene_id}\n{gene_name}")
+fig.legend(handles=[dupe_rate_lines, coverage_lines], loc = "lower right")
+fig.tight_layout()
+fig.savefig(outdir / f"select_genes.png", dpi=400)
+pyplot.close()
+
+
+###### PLOT INDIVIDUAL GENES
+for (gene_id, tx_id) in transcripts.iter_rows():
+    gene_name = gene.filter(gene_id = gene_id)['gene_name'][0]
 
     # Make the plot
     fig, axes = pyplot.subplots(figsize=(5,1.5*len(sample_ids)), nrows=len(sample_ids), layout="constrained", sharex=True, sharey=False)
 
-    for (ax, ((sample_id,), this_cov)) in zip(axes, cov.group_by(["sample_id"], maintain_order=True)):
-        this_dupe_rate = dupe_rate.filter(pl.col("sample_id") == sample_id)
-        # Find the read depth/dupe_rates for each position
-        # note that the cov/dupe_rate files give a range (start-end)
-        # and so we have to join_asof to find the right range
-        this_cov = (pos
-            .join_asof(
-                this_cov,
-                left_on = "pos",
-                right_on = "start",
-                by = "chrom",
-            )
-            .filter(
-                pl.col('pos') < pl.col('end'),
-            )
-        )
-        this_dupe_rate = (pos
-            .join_asof(
-                this_dupe_rate,
-                left_on = "pos",
-                right_on = "start",
-                by = "chrom"
-            )
-            .filter(
-                pl.col('pos') < pl.col('end'),
-            )
-        )
-
-        both = (
-            this_cov.select('pos', pl.col('value').alias("cov"))
-                .join(this_dupe_rate.select('pos', pl.col('value').alias('dupe_rate')), on="pos", validate="1:1")
-                .with_row_index(name="loc")
-                .with_columns(mask = pl.col('cov') > 100)
-        )
-
+    for (ax, sample_id) in zip(axes, sample_ids):
+        both = get_cov_and_dupe_rate(gene_id, sample_id)
         mask = np.array(both['mask']).astype(bool)
         masked_dupe_rate = np.array(both['dupe_rate']).astype(float)
         masked_dupe_rate[~mask] = float("nan")
