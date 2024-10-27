@@ -1,7 +1,7 @@
 #options(error = function() traceback(10))
 
 # Load the BSgenome for our species
-library(snakemake@params$BSgenome[[1]])
+library(snakemake@params$BSgenome, character.only=TRUE)
 if (snakemake@params$BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
     my_genome <- BSgenome.Hsapiens.UCSC.hg38
 } else {
