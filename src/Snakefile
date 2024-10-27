@@ -235,10 +235,25 @@ rule make_ensembldb:
     script:
         "scripts/make_ensembldb.R"
 
+rule convert_ensembldb_to_ucsc:
+    input:
+        sqlite = "data/{genome_name}.gtf.sqlite"
+    output:
+        sqlite = "data/{genome_name}.gtf.UCSC.sqlite"
+    resources:
+        mem_mb = 12_000
+    run:
+        import sqlite3
+        pathlib.Path(output.sqlite).write_bytes(pathlib.Path(input.sqlite).read_bytes()) # Make a copy
+        with sqlite3.connect(output.sqlite) as conn:
+            # Update chromosome names
+            conn.execute(""" UPDATE gene SET seq_name = "chr" || seq_name WHERE seq_name GLOB '[0-9XY]*' """)
+            conn.execute(""" UPDATE gene SET seq_name = "chrM" WHERE seq_name == "MT" """)
+
 rule select_alpine_transcripts:
     input:
         quants = lambda wildcards: expand("data/{sample_id}/bam/ReadsPerGene.out.tab", sample_id=samples_by_tissue[wildcards.tissue]),
-        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.UCSC.sqlite",
     output:
         outfile = "data/{tissue}/high_expressed_single_isoform_genes.txt"
     script:
@@ -248,7 +263,7 @@ rule run_alpine:
     input:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
-        ensdb = lambda wildcards: f"data/{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['name']}.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['name']}.gtf.UCSC.sqlite",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
         dummy = "data/{sample_id}/fastq",
         sif = "images/alpine.sif",
@@ -266,7 +281,7 @@ rule run_alpine:
 
 rule gen_alpine_rnafold_fragtypes:
     input:
-        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.UCSC.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
         sif = "images/alpine.sif",
     output:
@@ -285,7 +300,7 @@ rule run_alpine_rnafold:
     input:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
-        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.UCSC.sqlite",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
         fragtypes = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/alpine_rnafold.fragtypes.rda",
         dummy = "data/{sample_id}/fastq",
@@ -305,7 +320,7 @@ rule run_alpine_rnafold:
 rule compare_alpine:
     input:
         models = lambda wildcards: expand("data/{sample_id}/alpine.model.rda", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
-        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.UCSC.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
         sif = "images/alpine.sif",
     output:
@@ -321,7 +336,7 @@ rule compute_alpine_fits:
     input:
         bam = ["data/{sample_id}/bam/Aligned.sortedByCoord.out.bam"],
         models = ["data/{sample_id}/alpine.model.rda"],
-        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.UCSC.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
         sif = "images/alpine.sif",
     output:
@@ -339,7 +354,7 @@ rule plot_alpine_fits:
     input:
         cov_tables = lambda wildcards: expand("results/alpine_fits/{{tissue}}/{sample_id}.coverage_table.txt", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
         models = lambda wildcards: expand("data/{sample_id}/alpine.model.rda", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
-        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.UCSC.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
         sample_info = "results/sample_info.txt",
         sif = "images/alpine.sif",
@@ -356,7 +371,7 @@ rule plot_alpine_rnafold_fits:
     input:
         bam = lambda wildcards: expand("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
         models = lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
-        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.UCSC.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
         fragtypes = "data/{tissue}/alpine_rnafold.fragtypes.rda",
         sif = "images/alpine.sif",

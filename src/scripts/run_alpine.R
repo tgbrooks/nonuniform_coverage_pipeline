@@ -11,6 +11,7 @@ if (snakemake@params$BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
 library(BSgenome)
 library(ensembldb)
 library(stringr)
+library(dplyr)
 
 sample_id <- snakemake@wildcards$sample_id
 
