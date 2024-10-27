@@ -1,6 +1,28 @@
 import pathlib
 from samples import samples
 
+genome_by_tissue = {
+    "liver": {
+        "dir": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102",
+        "gtf": "/project/itmatlab/index/STAR-2.7.6a_indexes/GRCm38.ensemblv102/Mus_musculus.GRCm38.102.gtf",
+        "BSgenome": "BSgenome.Mmusculus.UCSC.mm10",
+        "name": "Mus_musculus.GRCm38.102"
+    },
+    "testis": {
+        "dir": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102",
+        "gtf": "/project/itmatlab/index/STAR-2.7.6a_indexes/GRCm38.ensemblv102/Mus_musculus.GRCm38.102.gtf",
+        "BSgenome": "BSgenome.Mmusculus.UCSC.mm10",
+        "name": "Mus_musculus.GRCm38.102"
+    },
+    "UHR": {
+        "dir": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCh38.ensemblv109",
+        "gtf": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCh38.ensemblv109/Homo_sapiens.GRCh38.109.gtf",
+        "BSgenome": "BSgenome.Hsapiens.UCSC.hg38",
+        "name": "GRCh38.ensemblv109",
+    }
+}
+gtf_by_name = {x['name']:x['gtf'] for x in genome_by_tissue.values()}
+
 samples_by_id = {sample['ID']: sample for sample in samples}
 sample_ids = [s['ID'] for s in samples]
 tissues = list(set(sample['tissue'] for sample in samples))
@@ -53,9 +75,20 @@ rule all:
         #"results/url.txt",
         #"results/alpine/liver/",
         "results/alpine_fit_plots/liver/",
+        "results/alpine_fit_plots/UHR/",
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
         "results/testis/pcr_dupe_rate_coverage_plot/",
+
+rule generate_sif:
+    input:
+        "containers/{container}.def"
+    output:
+        "images/{container}.sif"
+    resources:
+        mem_mb = 6_000
+    shell:
+        "apptainer build {output} {input}"
 
 rule fetch_srr_ids:
     output:
@@ -130,7 +163,7 @@ rule process_fastqs:
 
 checkpoint make_bam:
     input:
-        genome = "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102/",
+        genome = lambda wildcards: genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['dir'],
         reads = "data/{sample_id}/processed_fastqs",
     output:
         bam = protected("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam"),
@@ -162,7 +195,7 @@ rule make_coverage:
 rule make_bigwig:
     input:
       cov = "data/{sample_id}/coverage.{strand}.cov",
-      sizes = "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102/chrNameLength.txt"
+      sizes = lambda wildcards: f"{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['dir']}/chrNameLength.txt"
     output:
       "results/{sample_id}.coverage.{strand}.bw"
     resources:
@@ -191,16 +224,21 @@ rule index_BAMS:
 
 rule make_ensembldb:
     input:
-        gtf = "/project/itmatlab/index/STAR-2.7.6a_indexes/GRCm38.ensemblv102/Mus_musculus.GRCm38.102.gtf",
+        gtf = lambda wildcards: gtf_by_name[wildcards.genome_name],
+        sif = "images/alpine.sif",
     output:
-        sqlite = "data/Mus_musculus.GRCm38.102.gtf.sqlite"
+        sqlite = "data/{genome_name}.gtf.sqlite"
+    resources:
+        mem_mb = 12_000
+    container:
+        "images/alpine.sif"
     script:
         "scripts/make_ensembldb.R"
 
 rule select_alpine_transcripts:
     input:
         quants = lambda wildcards: expand("data/{sample_id}/bam/ReadsPerGene.out.tab", sample_id=samples_by_tissue[wildcards.tissue]),
-        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
     output:
         outfile = "data/{tissue}/high_expressed_single_isoform_genes.txt"
     script:
@@ -210,28 +248,36 @@ rule run_alpine:
     input:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
-        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['name']}.gtf.sqlite",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
         dummy = "data/{sample_id}/fastq",
+        sif = "images/alpine.sif",
     output:
         modelfile = protected("data/{sample_id}/alpine.model.rda"),
     params:
-      readlength =  lambda wildcards: get_readlen(wildcards.sample_id)
+        readlength =  lambda wildcards: get_readlen(wildcards.sample_id),
+        BSgenome = lambda wildcards: genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['BSgenome'],
     resources:
         mem_mb = 48_000,
+    container:
+        "images/alpine.sif"
     script:
         "scripts/run_alpine.R"
 
 rule gen_alpine_rnafold_fragtypes:
     input:
-        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+        sif = "images/alpine.sif",
     output:
         fragtypes = protected("data/{tissue}/alpine_rnafold.fragtypes.rda"),
     params:
-      readlength = 150 # Doesn't actually matter
+        readlength = 150, # Doesn't actually matter
+        BSgenome = lambda wildcards: genome_by_tissue[wildcards.tissue]['BSgenome'],
     resources:
         mem_mb = 32_000,
+    container:
+        "images/alpine.sif"
     script:
         "scripts/gen_alpine_rnafold_fragtypes.R"
 
@@ -239,28 +285,35 @@ rule run_alpine_rnafold:
     input:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
-        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
         fragtypes = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/alpine_rnafold.fragtypes.rda",
         dummy = "data/{sample_id}/fastq",
+        sif = "images/alpine.sif",
     output:
         modelfile = protected("data/{sample_id}/alpine_rnafold.model.rda"),
     params:
-      readlength = lambda wildcards: get_readlen(wildcards.sample_id)
+        readlength = lambda wildcards: get_readlen(wildcards.sample_id),
+        BSgenome = lambda wildcards: genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['BSgenome'],
     resources:
         mem_mb = 48_000,
+    container:
+        "images/alpine.sif"
     script:
         "scripts/run_alpine_rnafold.R"
 
 rule compare_alpine:
     input:
         models = lambda wildcards: expand("data/{sample_id}/alpine.model.rda", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
-        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+        sif = "images/alpine.sif",
     output:
         outdir = directory("results/alpine/{tissue}/"),
     resources:
         mem_mb = 6_000,
+    container:
+        "images/alpine.sif"
     script:
         "scripts/compare_alpine.R"
 
@@ -268,12 +321,17 @@ rule compute_alpine_fits:
     input:
         bam = ["data/{sample_id}/bam/Aligned.sortedByCoord.out.bam"],
         models = ["data/{sample_id}/alpine.model.rda"],
-        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+        sif = "images/alpine.sif",
     output:
         outfile = "results/alpine_fits/{tissue}/{sample_id}.coverage_table.txt",
+    params:
+        BSgenome = lambda wildcards: genome_by_tissue[wildcards.tissue]['BSgenome'],
     resources:
         mem_mb = 46_000,
+    container:
+        "images/alpine.sif"
     script:
         "scripts/compute_alpine_fits.R"
 
@@ -281,13 +339,16 @@ rule plot_alpine_fits:
     input:
         cov_tables = lambda wildcards: expand("results/alpine_fits/{{tissue}}/{sample_id}.coverage_table.txt", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
         models = lambda wildcards: expand("data/{sample_id}/alpine.model.rda", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
-        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
-        sample_info = "results/sample_info.txt"
+        sample_info = "results/sample_info.txt",
+        sif = "images/alpine.sif",
     output:
         outdir = directory("results/alpine_fit_plots/{tissue}/"),
     resources:
         mem_mb = 24_000,
+    container:
+        "images/alpine.sif"
     script:
         "scripts/plot_alpine_fits.R"
 
@@ -295,13 +356,18 @@ rule plot_alpine_rnafold_fits:
     input:
         bam = lambda wildcards: expand("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
         models = lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [s for s in samples_by_tissue[wildcards.tissue] if can_alpine(s)]),
-        ensdb = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
         fragtypes = "data/{tissue}/alpine_rnafold.fragtypes.rda",
+        sif = "images/alpine.sif",
     output:
         outdir = directory("results/alpine_rnafold_fits/{tissue}/"),
+    params:
+        BSgenome = lambda wildcards: genome_by_tissue[wildcards.tissue]['BSgenome'],
     resources:
         mem_mb = 46_000,
+    container:
+        "images/alpine.sif"
     script:
         "scripts/plot_alpine_rnafold_fits.R"
 
@@ -322,7 +388,7 @@ rule pcr_dupe_rate_coverage:
     input:
         bam = "data/{sample_id}/umi_groups/grouped.Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/umi_groups/grouped.Aligned.sortedByCoord.out.bam.bai",
-        chrom_lengths = "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102/chrNameLength.txt"
+        chrom_lengths = lambda wildcards: f"{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['dir']}/chrNameLength.txt"
     output:
         coverage = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed",
         duped_coverage = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.duped_coveage.bed",
@@ -336,7 +402,7 @@ rule plot_pcr_dupe_rate_coverage:
     input:
         coverage = expand("data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
         dupe_rate = expand("data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.pcr_dupe_rate_coverage.bed", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
-        annotation = "data/Mus_musculus.GRCm38.102.gtf.sqlite",
+        annotation = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
     output:
         outdir = directory("results/{tissue}/pcr_dupe_rate_coverage_plot/")

@@ -16,5 +16,8 @@ source ../.venv/bin/activate
 # and set up LSF support for snakemake
 
 bsub -e logs/snakemake.err \
-	-o logs/snakemake.out \
-	snakemake --profile lsf -j 100 -c 100 --resources ncbi_download=3 "$@"
+    -o logs/snakemake.out \
+    snakemake --profile lsf -j 100 -c 100 \
+    --use-singularity --singularity-args "-B /project/itmatlab/index/" \
+    --resources ncbi_download=3 \
+    "$@"

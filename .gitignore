@@ -1,6 +1,7 @@
 data
 logs
 results
+images
 temp
 *.swp
 *.swo

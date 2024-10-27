@@ -43,11 +43,14 @@ maxsize <- 600
 gene.names <- names(ebt.fit)
 names(gene.names) <- gene.names
 
-# Load Mmusculus object
-# For our prepared BSgenome object
-# See https://www.bioconductor.org/packages/devel/bioc/vignettes/BSgenome/inst/doc/BSgenomeForge.pdf
-# for instructions on how it was prepared
-library(BSgenome.Mmusculus.ENSEMBL.GRCm38)
+# Load the BSgenome for our species
+library(snakemake@params$BSgenome)
+if (snakemake@params$BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
+    my_genome <- BSgenome.Hsapiens.UCSC.hg38
+} else {
+    my_genome <- BSgenome.Mmusculus.UCSC.mm10
+}
+
 
 fragtypes <- readRDS(snakemake@input$fragtypes)
 
@@ -82,7 +85,7 @@ fitpar <- lapply(bam.files, function(bf) {
         genes=ebt.fit,
         bam.file=bf,
         fragtypes=fragtypes,
-        genome=Mmusculus,
+        genome=my_genome,
         models=models,
         readlength=readlength,
         minsize=minsize,

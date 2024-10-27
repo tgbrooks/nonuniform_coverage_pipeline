@@ -175,9 +175,53 @@ samples = [
     #    "ID": "SRX3357946",
     #    "PCR_cycle_count": 28,
     #},
+
+    ## SEQC samples
+    # Library ID of 1,2,3,4 indicates that the libraries were prepared by the central SEQC group
+    # and these were sequenced at 6 sites.Library ID of 5 indicates it was a site-specific library.
+    # Only the 3 "official" sites prepared the 5th libraries
+    {"ID": "SRX302132", "study": "PRJNA208369_BGI", "library_id": 1, "tissue": "UHR"},
+    {"ID": "SRX302148", "study": "PRJNA208369_BGI", "library_id": 2, "tissue": "UHR"},
+    {"ID": "SRX302164", "study": "PRJNA208369_BGI", "library_id": 3, "tissue": "UHR"},
+    {"ID": "SRX302180", "study": "PRJNA208369_BGI", "library_id": 4, "tissue": "UHR"},
+    {"ID": "SRX302196", "study": "PRJNA208369_BGI", "library_id": 5, "tissue": "UHR"},
+
+    {"ID": "SRX302516", "study": "PRJNA208369_CNL", "library_id": 1, "tissue": "UHR"},
+    {"ID": "SRX302531", "study": "PRJNA208369_CNL", "library_id": 2, "tissue": "UHR"},
+    {"ID": "SRX302546", "study": "PRJNA208369_CNL", "library_id": 3, "tissue": "UHR"},
+    {"ID": "SRX302561", "study": "PRJNA208369_CNL", "library_id": 4, "tissue": "UHR"},
+    {"ID": "SRX302576", "study": "PRJNA208369_CNL", "library_id": 5, "tissue": "UHR"},
+
+    {"ID": "SRX302876", "study": "PRJNA208369_MAY", "library_id": 1, "tissue": "UHR"},
+    {"ID": "SRX302892", "study": "PRJNA208369_MAY", "library_id": 2, "tissue": "UHR"},
+    {"ID": "SRX302908", "study": "PRJNA208369_MAY", "library_id": 3, "tissue": "UHR"},
+    {"ID": "SRX302924", "study": "PRJNA208369_MAY", "library_id": 4, "tissue": "UHR"},
+    {"ID": "SRX302940", "study": "PRJNA208369_MAY", "library_id": 5, "tissue": "UHR"},
+
+    #{"ID": "SRX510226", "study": "PRJNA208369_NYG", "library_id": 1, "tissue": "UHR"},
+    #{"ID": "SRX510233", "study": "PRJNA208369_NYG", "library_id": 2, "tissue": "UHR"},
+    #{"ID": "SRX510240", "study": "PRJNA208369_NYG", "library_id": 3, "tissue": "UHR"},
+    #{"ID": "SRX510247", "study": "PRJNA208369_NYG", "library_id": 4, "tissue": "UHR"},
+
+    #{"ID": "SRX303260", "study": "PRJNA208369_NVS", "library_id": 1, "tissue": "UHR"},
+    #{"ID": "SRX303276", "study": "PRJNA208369_NVS", "library_id": 2, "tissue": "UHR"},
+    #{"ID": "SRX303292", "study": "PRJNA208369_NVS", "library_id": 3, "tissue": "UHR"},
+    #{"ID": "SRX303308", "study": "PRJNA208369_NVS", "library_id": 4, "tissue": "UHR"},
+
+    #{"ID": "SRX303579", "study": "PRJNA208369_COH", "library_id": 1, "tissue": "UHR"},
+    #{"ID": "SRX303587", "study": "PRJNA208369_COH", "library_id": 2, "tissue": "UHR"},
+    #{"ID": "SRX303595", "study": "PRJNA208369_COH", "library_id": 3, "tissue": "UHR"},
+    #{"ID": "SRX303603", "study": "PRJNA208369_COH", "library_id": 4, "tissue": "UHR"},
+
+    #{"ID": "SRX303708", "study": "PRJNA208369_AGR", "library_id": 1, "tissue": "UHR"},
+    #{"ID": "SRX303724", "study": "PRJNA208369_AGR", "library_id": 2, "tissue": "UHR"},
+    #{"ID": "SRX303740", "study": "PRJNA208369_AGR", "library_id": 3, "tissue": "UHR"},
+    #{"ID": "SRX303756", "study": "PRJNA208369_AGR", "library_id": 4, "tissue": "UHR"},
 ]
 
 for sample in samples:
+    if "PCR_cycle_count" not in sample:
+        sample["PCR_cycle_count"] = "unknown"
     sample['name'] = f"{sample['ID']}.PCR={sample['PCR_cycle_count']}"
 
 # Check all unique

@@ -62,11 +62,13 @@ library(alpine)
 gene.names <- names(ebt.fit)
 names(gene.names) <- gene.names
 
-# Load Mmusculus object
-# For our prepared BSgenome object
-# See https://www.bioconductor.org/packages/devel/bioc/vignettes/BSgenome/inst/doc/BSgenomeForge.pdf
-# for instructions on how it was prepared
-library(BSgenome.Mmusculus.ENSEMBL.GRCm38)
+# Load the BSgenome for our species
+library(snakemake@params$BSgenome)
+if (snakemake@params$BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
+    my_genome <- BSgenome.Hsapiens.UCSC.hg38
+} else {
+    my_genome <- BSgenome.Mmusculus.UCSC.mm10
+}
 
 fragtypes <- readRDS(fragtypes_file)
 adaptFragtypes <- function(fragtypes, readlength, gene) {
@@ -160,7 +162,7 @@ for( gene in names(ebt.fit) ) {
                               gene_fragtypes=fragtypes[[gene]],
                               bam.files=bam.files,
                               fitpar=models,
-                              genome=Mmusculus,
+                              genome=my_genome,
                               model.names=model.names)
 
   # Assemble the actual+predicted data into a long-form tibble

@@ -1,0 +1,12 @@
+Bootstrap: docker
+From: rocker/tidyverse:4.4
+
+%post
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y libbz2-dev
+
+    R -e 'install.packages(c("r2r", "RColorBrewer"))'
+    #R -e 'remotes::install_bioc(c("S4Vectors", "S4Arrays", "XVector", "GenomicFeatures", "BSgenome", "GenomicRanges","Biostrings", "Rhtslib", "DelayedArray",  "SparseArray", "SummarizedExperiment", "AnnotationDbi", "KEGGREST", "Rsamtools", "biomaRt", "rtracklayer", "ensembldb"))'
+    R -e 'BiocManager::install(c("S4Vectors", "S4Arrays", "XVector", "GenomicFeatures", "BSgenome", "GenomicRanges","Biostrings", "Rhtslib", "DelayedArray",  "SparseArray", "SummarizedExperiment", "AnnotationDbi", "KEGGREST", "Rsamtools", "biomaRt", "rtracklayer", "ensembldb"))'
+    R -e 'BiocManager::install(c("BSgenome.Hsapiens.UCSC.hg38", "BSgenome.Mmusculus.UCSC.mm10"))'
+    R -e 'remotes::install_github("mikelove/alpine")'
