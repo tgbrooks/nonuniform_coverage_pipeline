@@ -1,4 +1,4 @@
-#options(error = function() traceback(10))
+options(error = function() traceback(10))
 
 # Load the BSgenome for our species
 library(snakemake@params$BSgenome, character.only=TRUE)
@@ -7,6 +7,7 @@ if (snakemake@params$BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
 } else {
     my_genome <- BSgenome.Mmusculus.UCSC.mm10
 }
+seqlevelsStyle(my_genome) <- "NCBI"
 
 library(BSgenome)
 library(ensembldb)

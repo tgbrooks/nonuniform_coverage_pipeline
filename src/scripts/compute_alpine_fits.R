@@ -64,6 +64,7 @@ if (snakemake@params$BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
 } else {
     my_genome <- BSgenome.Mmusculus.UCSC.mm10
 }
+seqlevelsStyle(my_genome) <- "NCBI"
 
 
 print("Making fragtypes")

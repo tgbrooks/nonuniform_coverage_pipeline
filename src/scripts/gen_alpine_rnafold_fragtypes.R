@@ -46,6 +46,7 @@ if (snakemake@params$BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
 } else {
     my_genome <- BSgenome.Mmusculus.UCSC.mm10
 }
+seqlevelsStyle(my_genome) <- "NCBI"
 
 # Helper function to run RNAfold and extract the entropy
 RNAfold_executable <- "/home/thobr/ViennaRNA/bin/RNAfold"
