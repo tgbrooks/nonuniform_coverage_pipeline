@@ -72,17 +72,18 @@ for (gene in unique(cov_table$gene)) {
   print(paste("Plotting", gene))
   gene_cov <- cov_table[cov_table$gene == gene,] %>%
         left_join(sample_info, by=join_by(sample == ID))
+  print(gene_cov |> colnames())
   ggplot(
           data = gene_cov,
           aes(x=pos, y=actual)
       ) +
-      facet_wrap(
-          ~study,
-          scales = "free_y",
-          ncol = 1,
+      facet_grid(
+          cols=vars(sample_num),
+          rows=vars(study),
+          scales = "free",
       ) +
       geom_path(
-          color = sample_num,
+          color = "black",
       ) +
       geom_path(
           aes(y = predicted),
