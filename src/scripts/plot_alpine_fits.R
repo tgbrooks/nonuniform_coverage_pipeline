@@ -23,7 +23,7 @@ sample_info <- read_tsv(snakemake@input$sample_info) %>%
 if (snakemake@wildcards$tissue == "liver") {
     select_genes <- c("ENSMUST00000023559", "ENSMUST00000028995", "ENSMUST00000047973")
 } else if (snakemake@wildcards$tissue == "UHR") {
-    select_genes <- c("ENST00000272091", "ENST00000380680", "ENST00000604000")
+    select_genes <- c("ENST00000380680", "ENST00000604000", "ENST00000426077")
 } else {
     select_genes <- c()
 }
@@ -37,6 +37,7 @@ if (length(select_genes) > 0) {
     print("select cov:")
     print(select_cov)
     print(select_cov |>dim())
+    print(select_cov$gene |> n_distinct())
     print("Trying  to print:")
     ggplot(
             data = select_cov,
@@ -69,18 +70,19 @@ if (length(select_genes) > 0) {
 # Make the plots
 for (gene in unique(cov_table$gene)) {
   print(paste("Plotting", gene))
-  gene_cov <- cov_table[cov_table$gene == gene,]
+  gene_cov <- cov_table[cov_table$gene == gene,] %>%
+        left_join(sample_info, by=join_by(sample == ID))
   ggplot(
           data = gene_cov,
           aes(x=pos, y=actual)
       ) +
       facet_wrap(
-          ~sample,
+          ~study,
           scales = "free_y",
           ncol = 1,
       ) +
       geom_path(
-          color = "black",
+          color = sample_num,
       ) +
       geom_path(
           aes(y = predicted),

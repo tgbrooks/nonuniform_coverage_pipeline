@@ -93,8 +93,11 @@ rule generate_sif:
 rule fetch_srr_ids:
     output:
         "data/{sample_id}/SRR.txt"
-    shell:
-        "esearch -db sra -query {wildcards.sample_id} | efetch -format docsum |xtract -pattern DocumentSummary -element Run@acc > {output}"
+    run:
+        if 'all_SRR' in samples_by_id[wildcards.sample_id]:
+            pathlib.Path(output[0]).write_text(" ".join(samples_by_id[wildcards.sample_id]['all_SRR']))
+        else:
+            shell("esearch -db sra -query {wildcards.sample_id} | efetch -format docsum |xtract -pattern DocumentSummary -element Run@acc > {output}")
 
 checkpoint download_srx:
     input:
@@ -104,8 +107,7 @@ checkpoint download_srx:
     resources:
       ncbi_download = 1
     shell:
-        # TODO: support multiple SRRs for a single SRX?
-        "fasterq-dump -A `cat {input}` -O {output} --split-3"
+        "fasterq-dump `cat {input}` -O {output} --split-3;"
 
 rule process_fastqs:
     input:
@@ -420,5 +422,7 @@ rule sample_info:
     run:
         import polars as pl
         pl.DataFrame(samples)\
+            .filter(tissue = wildcards.tissue)\
+            .select("ID", "study", "tissue", "PCR_cycle_count", "name", "library_id")\
             .select(pl.all().cast(pl.Utf8))\
             .write_csv(f"results/{wildcards.tissue}.sample_info.txt", separator="\t")
