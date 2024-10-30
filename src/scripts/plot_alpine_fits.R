@@ -93,10 +93,6 @@ for (gene in unique(cov_table$gene)) {
           x = "Position",
           y = "Read Depth",
           title = "Alpine model fits"
-      ) +
-      theme(
-          axis.text.y = element_blank(),
-          axis.ticks = element_blank()
       )
   ggsave(
       paste(outdir, paste("trace.", gene, ".png", sep=""), sep="/"),
