@@ -1,25 +1,5 @@
-import pathlib
-from samples import samples
-
-genome_by_tissue = {
-    "liver": {
-        "dir": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102",
-        "gtf": "/project/itmatlab/index/STAR-2.7.6a_indexes/GRCm38.ensemblv102/Mus_musculus.GRCm38.102.gtf",
-        "BSgenome": "BSgenome.Mmusculus.UCSC.mm10",
-        "name": "Mus_musculus.GRCm38.102"
-    },
-    "testis": {
-        "dir": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102",
-        "gtf": "/project/itmatlab/index/STAR-2.7.6a_indexes/GRCm38.ensemblv102/Mus_musculus.GRCm38.102.gtf",
-        "BSgenome": "BSgenome.Mmusculus.UCSC.mm10",
-        "name": "Mus_musculus.GRCm38.102"
-    },
-    "UHR": {
-        "dir": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCh38.ensemblv109",
-        "gtf": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCh38.ensemblv109/Homo_sapiens.GRCh38.109.gtf",
-        "BSgenome": "BSgenome.Hsapiens.UCSC.hg38",
-        "name": "GRCh38.ensemblv109",
-    }
+Ch38'],
+    "human_bone": genomes['GRCh38'],
 }
 gtf_by_name = {x['name']:x['gtf'] for x in genome_by_tissue.values()}
 
@@ -76,9 +56,12 @@ rule all:
         #"results/alpine/liver/",
         "results/alpine_fit_plots/liver/",
         "results/alpine_fit_plots/UHR/",
+        "results/alpine_fit_plots/human_bone/",
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
         "results/testis/pcr_dupe_rate_coverage_plot/",
+        "results/all_coverage.parquet",
+        "results/selected_genomic_sequences.txt"
 
 rule generate_sif:
     input:
@@ -101,13 +84,17 @@ rule fetch_srr_ids:
 
 checkpoint download_srx:
     input:
-        "data/{sample_id}/SRR.txt"
+        srr = "data/{sample_id}/SRR.txt",
+        sif = "images/sratools.sif",
     output:
         directory("data/{sample_id}/fastq")
     resources:
-      ncbi_download = 1
+      ncbi_download = 1,
+      mem_mb = 12_000,
+    container:
+        "images/sratools.sif"
     shell:
-        "fasterq-dump `cat {input}` -O {output} --split-3;"
+        "fasterq-dump `cat {input.srr}` -O {output} --split-3;"
 
 rule process_fastqs:
     input:
@@ -168,9 +155,9 @@ checkpoint make_bam:
         genome = lambda wildcards: genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['dir'],
         reads = "data/{sample_id}/processed_fastqs",
     output:
-        bam = protected("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam"),
-        quants = protected("data/{sample_id}/bam/ReadsPerGene.out.tab"),
-        log = protected("data/{sample_id}/bam/Log.final.out"),
+        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
+        quants = "data/{sample_id}/bam/ReadsPerGene.out.tab",
+        log = "data/{sample_id}/bam/Log.final.out",
     params:
         outdir = "data/{sample_id}/bam/",
     threads: 6
@@ -255,7 +242,7 @@ rule run_alpine:
         dummy = "data/{sample_id}/fastq",
         sif = "images/alpine.sif",
     output:
-        modelfile = protected("data/{sample_id}/alpine.model.rda"),
+        modelfile = "data/{sample_id}/alpine.model.rda",
     params:
         readlength =  lambda wildcards: get_readlen(wildcards.sample_id),
         BSgenome = lambda wildcards: genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['BSgenome'],
@@ -272,7 +259,7 @@ rule gen_alpine_rnafold_fragtypes:
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
         sif = "images/alpine.sif",
     output:
-        fragtypes = protected("data/{tissue}/alpine_rnafold.fragtypes.rda"),
+        fragtypes = "data/{tissue}/alpine_rnafold.fragtypes.rda",
     params:
         readlength = 150, # Doesn't actually matter
         BSgenome = lambda wildcards: genome_by_tissue[wildcards.tissue]['BSgenome'],
@@ -423,6 +410,46 @@ rule sample_info:
         import polars as pl
         pl.DataFrame(samples)\
             .filter(tissue = wildcards.tissue)\
-            .select("ID", "study", "tissue", "PCR_cycle_count", "name", "library_id")\
+            .drop("all_SRR")\
             .select(pl.all().cast(pl.Utf8))\
             .write_csv(f"results/{wildcards.tissue}.sample_info.txt", separator="\t")
+
+TISSUES_TO_AGGREGATE = ["liver", "UHR"]
+rule aggregate_coverage:
+    input:
+        expand("results/alpine_fits/{tissue}/", tissue=TISSUES_TO_AGGREGATE)
+    output:
+        all = "results/all_coverage.parquet"
+    resources:
+        mem_mb = 32_000
+    run:
+        import polars as pl
+        all_df = []
+        for covdir, tissue in zip(input, TISSUES_TO_AGGREGATE):
+            print(covdir)
+            for covfile in pathlib.Path(covdir).glob("*.txt"):
+                print(covfile)
+                df = pl.read_csv(covfile, separator="\t")
+                sample_id = df['sample'][0]
+                all_df.append(
+                    df.with_columns(
+                        tissue = pl.lit(tissue),
+                        study = pl.lit(samples_by_id[sample_id]['study']),
+                    )
+                )
+        pl.concat(all_df).write_parquet(output.all)
+
+rule extract_genomic:
+    input:
+        expand("results/{tissue}/high_expressed_single_isoform_genes.txt", tissue=TISSUES_TO_AGGREGATE),
+        sqlites = expand("data/{genome_name}.gtf.sqlite", genome_name=["Mus_musculus.GRCm38.102", "GRCh38.ensemblv109"]),
+        sif = "images/alpine.sif",
+    output:
+        all = "results/selected_genomic_sequences.txt"
+    resources:
+        mem_mb = 32_000
+    container:
+        "images/alpine.sif"
+    script:
+        "scripts/extract_genomic.R"
+
