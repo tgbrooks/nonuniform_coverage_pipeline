@@ -1,5 +1,25 @@
-Ch38'],
-    "human_bone": genomes['GRCh38'],
+import pathlib
+from samples import samples
+
+genomes = {
+    "GRCm38": {
+        "dir": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCm38.ensemblv102",
+        "gtf": "/project/itmatlab/index/STAR-2.7.6a_indexes/GRCm38.ensemblv102/Mus_musculus.GRCm38.102.gtf",
+        "BSgenome": "BSgenome.Mmusculus.UCSC.mm10",
+        "name": "Mus_musculus.GRCm38.102"
+    },
+    "GRCh38": {
+        "dir": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCh38.ensemblv109",
+        "gtf": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCh38.ensemblv109/Homo_sapiens.GRCh38.109.gtf",
+        "BSgenome": "BSgenome.Hsapiens.UCSC.hg38",
+        "name": "GRCh38.ensemblv109",
+    },
+}
+genome_by_tissue = {
+    "liver": genomes['GRCm38'],
+    "testis": genomes['GRCm38'],
+    "UHR": genomes['GRCh38'],
+    "human_PBMCs": genomes['GRCh38'],
 }
 gtf_by_name = {x['name']:x['gtf'] for x in genome_by_tissue.values()}
 
