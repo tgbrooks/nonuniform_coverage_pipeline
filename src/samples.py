@@ -243,26 +243,35 @@ samples = [
 
     ### Degradation study in metastatic tumors in bone
     # https://link.springer.com/article/10.1186/s12859-016-0922-z
-    {'ID': 'SRX1073693', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073694', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073695', 'tissue': 'human_bone', 'rin_score': 2.5, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073696', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073697', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073698', 'tissue': 'human_bone', 'rin_score': 2.5, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073699', 'tissue': 'human_bone', 'rin_score': 2.6, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073700', 'tissue': 'human_bone', 'rin_score': 2.3, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073701', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073702', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073703', 'tissue': 'human_bone', 'rin_score': 6.7, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073704', 'tissue': 'human_bone', 'rin_score': 4.4, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073705', 'tissue': 'human_bone', 'rin_score': 6.1, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073706', 'tissue': 'human_bone', 'rin_score': 5.0, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073707', 'tissue': 'human_bone', 'rin_score': 7.1, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073708', 'tissue': 'human_bone', 'rin_score': 8.7, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073709', 'tissue': 'human_bone', 'rin_score': 7.9, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073710', 'tissue': 'human_bone', 'rin_score': 9.1, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073711', 'tissue': 'human_bone', 'rin_score': 8.1, 'study': 'PRJNA288159'},
-    {'ID': 'SRX1073712', 'tissue': 'human_bone', 'rin_score': 7.9, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073693', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073694', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073695', 'tissue': 'human_bone', 'rin_score': 2.5, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073696', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073697', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073698', 'tissue': 'human_bone', 'rin_score': 2.5, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073699', 'tissue': 'human_bone', 'rin_score': 2.6, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073700', 'tissue': 'human_bone', 'rin_score': 2.3, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073701', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073702', 'tissue': 'human_bone', 'rin_score': 2.4, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073703', 'tissue': 'human_bone', 'rin_score': 6.7, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073704', 'tissue': 'human_bone', 'rin_score': 4.4, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073705', 'tissue': 'human_bone', 'rin_score': 6.1, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073706', 'tissue': 'human_bone', 'rin_score': 5.0, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073707', 'tissue': 'human_bone', 'rin_score': 7.1, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073708', 'tissue': 'human_bone', 'rin_score': 8.7, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073709', 'tissue': 'human_bone', 'rin_score': 7.9, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073710', 'tissue': 'human_bone', 'rin_score': 9.1, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073711', 'tissue': 'human_bone', 'rin_score': 8.1, 'study': 'PRJNA288159'},
+    #{'ID': 'SRX1073712', 'tissue': 'human_bone', 'rin_score': 7.9, 'study': 'PRJNA288159'},
+
+    ### UHR artificial chemical degradation study
+    # https://link.springer.com/article/10.1186/s12859-016-0922-z
+    {'ID': 'SRX1703840', 'rin_score': 3.9, 'all_SRR': ['SRR3380735', 'SRR3380736'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'},
+    {'ID': 'SRX1703841', 'rin_score': 4.9, 'all_SRR': ['SRR3380737', 'SRR3380738'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'},
+    {'ID': 'SRX1703844', 'rin_score': 8.4, 'all_SRR': ['SRR3380743', 'SRR3380744'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'},
+    {'ID': 'SRX1703842', 'rin_score': 5.9, 'all_SRR': ['SRR3380739', 'SRR3380740'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'},
+    {'ID': 'SRX1703845', 'rin_score': 8.6, 'all_SRR': ['SRR3380746', 'SRR3380745'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'},
+    {'ID': 'SRX1703843', 'rin_score': 7.6, 'all_SRR': ['SRR3380741', 'SRR3380742'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'}
 ]
 
 for sample in samples:
