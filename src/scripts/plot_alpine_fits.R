@@ -24,6 +24,8 @@ if (snakemake@wildcards$tissue == "liver") {
     select_genes <- c("ENSMUST00000023559", "ENSMUST00000028995", "ENSMUST00000047973")
 } else if (snakemake@wildcards$tissue == "UHR") {
     select_genes <- c("ENST00000380680", "ENST00000604000", "ENST00000426077")
+} else if (snakemake@wildcards$tissue == "UHR_degraded") {
+    select_genes <- c("ENST00000053468", "ENST00000253063", "ENST00000272233")
 } else {
     select_genes <- c()
 }
@@ -34,11 +36,6 @@ if (length(select_genes) > 0) {
         group_by(sample, gene) %>%
         mutate(rel_read_depth = actual / max(actual)) %>%
         ungroup()
-    print("select cov:")
-    print(select_cov)
-    print(select_cov |>dim())
-    print(select_cov$gene |> n_distinct())
-    print("Trying  to print:")
     ggplot(
             data = select_cov,
             aes(x=pos, y=rel_read_depth)
@@ -64,6 +61,41 @@ if (length(select_genes) > 0) {
         paste(outdir, "selected_genes.replicates.png", sep="/"),
         width = 7,
         height = 7,
+    )
+}
+
+if ("rin_score" %in% colnames(sample_info)) {
+    # BY RIN SCORE
+    select_cov <- cov_table[cov_table$gene %in% select_genes,] %>%
+        left_join(sample_info, by=join_by(sample == ID)) %>%
+        group_by(sample, gene) %>%
+        mutate(rel_read_depth = actual / max(actual)) %>%
+        ungroup()
+    ggplot(
+            data = select_cov,
+            aes(x=pos, y=rel_read_depth, group=sample)
+        ) +
+        facet_grid(
+            cols = vars(gene),
+            scales = "free",
+        ) +
+        geom_path(
+            aes(color = rin_score),
+        ) +
+        scale_color_viridis_c(option = "viridis", limits=c(0,10)) +
+        labs(
+            x = "Position",
+            y = "Normalized Read Depth",
+            color = "RIN score"
+        ) +
+        theme(
+            axis.text.y = element_blank(),
+            axis.ticks = element_blank()
+        )
+    ggsave(
+        paste(outdir, "selected_genes.by_rin_score.png", sep="/"),
+        width = 7,
+        height = 2.5,
     )
 }
 

@@ -19,7 +19,9 @@ genome_by_tissue = {
     "liver": genomes['GRCm38'],
     "testis": genomes['GRCm38'],
     "UHR": genomes['GRCh38'],
+    "UHR_degraded": genomes['GRCh38'],
     "human_PBMCs": genomes['GRCh38'],
+    "human_bone": genomes['GRCh38'],
 }
 gtf_by_name = {x['name']:x['gtf'] for x in genome_by_tissue.values()}
 
@@ -34,7 +36,7 @@ BUCKET_DIR = "PCR_cycle_count"
 
 def num_reads(sample_id):
    # Returns 1 if single-end and 2 if paired-end
-   fastq_dir = str(checkpoints.download_srx.get(sample_id = sample_id).output)
+   fastq_dir = str(checkpoints.extract_fastq.get(sample_id = sample_id).output)
    fastq = list(pathlib.Path(fastq_dir).glob("*.fastq"))[0].name
    return 2 if "_" in fastq else 1
 
@@ -49,7 +51,7 @@ def can_alpine(sample_id):
   return num_reads(sample_id) > 1
 
 def get_readlen(sample_id):
-  fastq_dir = pathlib.Path(str(checkpoints.download_srx.get(sample_id = sample_id).output))
+  fastq_dir = pathlib.Path(str(checkpoints.extract_fastq.get(sample_id = sample_id).output))
   fastq_file = list(fastq_dir.glob("*.fastq"))[0]
   with open(fastq_file) as f:
     f.readline()
@@ -70,18 +72,19 @@ rule all:
         #expand("results/{sample_id}.coverage.fwd.bw", sample_id = sample_ids),
         #expand("results/{sample_id}.coverage.rev.bw", sample_id = sample_ids),
         #expand("results/{sample_id}.coverage.unstranded.bw", sample_id = sample_ids),
-        expand("data/{sample_id}/umi_groups/grouped.Aligned.sortedByCoord.out.bam", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
+        #expand("data/{sample_id}/umi_groups/grouped.Aligned.sortedByCoord.out.bam", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
         #"data/liver/high_expressed_single_isoform_genes.txt",
         #"results/url.txt",
         #"results/alpine/liver/",
-        "results/alpine_fit_plots/liver/",
-        "results/alpine_fit_plots/UHR/",
-        "results/alpine_fit_plots/human_bone/",
+        #"results/alpine_fit_plots/liver/",
+        #"results/alpine_fit_plots/UHR/",
+        #"results/alpine_fit_plots/human_bone/",
+        "results/alpine_fit_plots/UHR_degraded/",
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
-        "results/testis/pcr_dupe_rate_coverage_plot/",
-        "results/all_coverage.parquet",
-        "results/selected_genomic_sequences.txt"
+        #"results/testis/pcr_dupe_rate_coverage_plot/",
+        #"results/all_coverage.parquet",
+        #"results/selected_genomic_sequences.txt"
 
 rule generate_sif:
     input:
@@ -98,23 +101,47 @@ rule fetch_srr_ids:
         "data/{sample_id}/SRR.txt"
     run:
         if 'all_SRR' in samples_by_id[wildcards.sample_id]:
-            pathlib.Path(output[0]).write_text(" ".join(samples_by_id[wildcards.sample_id]['all_SRR']))
+            pathlib.Path(output[0]).write_text("\n".join(samples_by_id[wildcards.sample_id]['all_SRR'])+"\n")
         else:
             shell("esearch -db sra -query {wildcards.sample_id} | efetch -format docsum |xtract -pattern DocumentSummary -element Run@acc > {output}")
 
-checkpoint download_srx:
+rule download_srx:
     input:
         srr = "data/{sample_id}/SRR.txt",
         sif = "images/sratools.sif",
     output:
-        directory("data/{sample_id}/fastq")
+        directory("data/{sample_id}/SRR/")
     resources:
       ncbi_download = 1,
       mem_mb = 12_000,
     container:
         "images/sratools.sif"
     shell:
-        "fasterq-dump `cat {input.srr}` -O {output} --split-3;"
+        """
+        mkdir {output}
+        while read srr; do
+            prefetch $srr -O {output}/
+        done < {input.srr}
+        """
+
+
+checkpoint extract_fastq:
+    input:
+        srr = "data/{sample_id}/SRR.txt",
+        srr_dir = "data/{sample_id}/SRR/",
+        sif = "images/sratools.sif",
+    output:
+        directory("data/{sample_id}/fastq")
+    resources:
+        mem_mb = 12_000,
+    container:
+        "images/sratools.sif"
+    shell:
+        """
+        while read srr; do
+            fasterq-dump {input.srr_dir}/$srr -O {output}/ --split-3
+        done < {input.srr}
+        """
 
 rule process_fastqs:
     input:
