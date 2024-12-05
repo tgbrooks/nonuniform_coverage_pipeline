@@ -219,26 +219,27 @@ samples = [
 
     ### Degradation of sample quality
     # https://link.springer.com/article/10.1186/1741-7007-12-42
-    #{'ID': 'SRX554541', 'study': 'PRJNA246723', 'hours': 0, 'all_SRR': ['SRR1300791', 'SRR1300792'], 'tissue': 'human_PBMCs', 'individual': 1},
-    #{'ID': 'SRX554542', 'study': 'PRJNA246723', 'hours': 12, 'all_SRR': ['SRR1300793', 'SRR1300794'], 'tissue': 'human_PBMCs', 'individual': 1},
-    #{'ID': 'SRX554543', 'study': 'PRJNA246723', 'hours': 24, 'all_SRR': ['SRR1300795', 'SRR1300796'], 'tissue': 'human_PBMCs', 'individual': 1},
-    #{'ID': 'SRX554544', 'study': 'PRJNA246723', 'hours': 48, 'all_SRR': ['SRR1300797', 'SRR1300798'], 'tissue': 'human_PBMCs', 'individual': 1},
-    #{'ID': 'SRX554545', 'study': 'PRJNA246723', 'hours': 84, 'all_SRR': ['SRR1300799', 'SRR1300800'], 'tissue': 'human_PBMCs', 'individual': 1},
-    #{'ID': 'SRX554546', 'study': 'PRJNA246723', 'hours': 0, 'all_SRR': ['SRR1300801', 'SRR1300802'], 'tissue': 'human_PBMCs', 'individual': 2},
-    #{'ID': 'SRX554547', 'study': 'PRJNA246723', 'hours': 12, 'all_SRR': ['SRR1300803', 'SRR1300804'], 'tissue': 'human_PBMCs', 'individual': 2},
-    #{'ID': 'SRX554548', 'study': 'PRJNA246723', 'hours': 24, 'all_SRR': ['SRR1300805', 'SRR1300806'], 'tissue': 'human_PBMCs', 'individual': 2},
-    #{'ID': 'SRX554549', 'study': 'PRJNA246723', 'hours': 48, 'all_SRR': ['SRR1300807', 'SRR1300808'], 'tissue': 'human_PBMCs', 'individual': 2},
-    #{'ID': 'SRX554550', 'study': 'PRJNA246723', 'hours': 84, 'all_SRR': ['SRR1300809', 'SRR1300810'], 'tissue': 'human_PBMCs', 'individual': 2},
-    #{'ID': 'SRX554551', 'study': 'PRJNA246723', 'hours': 0, 'all_SRR': ['SRR1300811', 'SRR1300812'], 'tissue': 'human_PBMCs', 'individual': 3},
-    #{'ID': 'SRX554552', 'study': 'PRJNA246723', 'hours': 12, 'all_SRR': ['SRR1300813', 'SRR1300814'], 'tissue': 'human_PBMCs', 'individual': 3},
-    #{'ID': 'SRX554553', 'study': 'PRJNA246723', 'hours': 24, 'all_SRR': ['SRR1300815', 'SRR1300816'], 'tissue': 'human_PBMCs', 'individual': 3},
-    #{'ID': 'SRX554554', 'study': 'PRJNA246723', 'hours': 48, 'all_SRR': ['SRR1300817', 'SRR1300818'], 'tissue': 'human_PBMCs', 'individual': 3},
-    #{'ID': 'SRX554555', 'study': 'PRJNA246723', 'hours': 84, 'all_SRR': ['SRR1300819', 'SRR1300820'], 'tissue': 'human_PBMCs', 'individual': 3},
-    #{'ID': 'SRX554556', 'study': 'PRJNA246723', 'hours': 0, 'all_SRR': ['SRR1300821', 'SRR1300822'], 'tissue': 'human_PBMCs', 'individual': 4},
-    #{'ID': 'SRX554557', 'study': 'PRJNA246723', 'hours': 12, 'all_SRR': ['SRR1300823', 'SRR1300824'], 'tissue': 'human_PBMCs', 'individual': 4},
-    #{'ID': 'SRX554558', 'study': 'PRJNA246723', 'hours': 24, 'all_SRR': ['SRR1300825', 'SRR1300826'], 'tissue': 'human_PBMCs', 'individual': 4},
-    #{'ID': 'SRX554559', 'study': 'PRJNA246723', 'hours': 48, 'all_SRR': ['SRR1300827', 'SRR1300828'], 'tissue': 'human_PBMCs', 'individual': 4},
-    #{'ID': 'SRX554560', 'study': 'PRJNA246723', 'hours': 84, 'all_SRR': ['SRR1300829', 'SRR1300830'], 'tissue': 'human_PBMCs', 'individual': 4},
+    # NOTE: all paired end, cannot do alpine
+    {'ID': 'SRX554541', 'study': 'PRJNA246723', 'hours': 0, 'all_SRR': ['SRR1300791', 'SRR1300792'], 'tissue': 'human_PBMCs', 'individual': 1},
+    {'ID': 'SRX554542', 'study': 'PRJNA246723', 'hours': 12, 'all_SRR': ['SRR1300793', 'SRR1300794'], 'tissue': 'human_PBMCs', 'individual': 1},
+    {'ID': 'SRX554543', 'study': 'PRJNA246723', 'hours': 24, 'all_SRR': ['SRR1300795', 'SRR1300796'], 'tissue': 'human_PBMCs', 'individual': 1},
+    {'ID': 'SRX554544', 'study': 'PRJNA246723', 'hours': 48, 'all_SRR': ['SRR1300797', 'SRR1300798'], 'tissue': 'human_PBMCs', 'individual': 1},
+    {'ID': 'SRX554545', 'study': 'PRJNA246723', 'hours': 84, 'all_SRR': ['SRR1300799', 'SRR1300800'], 'tissue': 'human_PBMCs', 'individual': 1},
+    {'ID': 'SRX554546', 'study': 'PRJNA246723', 'hours': 0, 'all_SRR': ['SRR1300801', 'SRR1300802'], 'tissue': 'human_PBMCs', 'individual': 2},
+    {'ID': 'SRX554547', 'study': 'PRJNA246723', 'hours': 12, 'all_SRR': ['SRR1300803', 'SRR1300804'], 'tissue': 'human_PBMCs', 'individual': 2},
+    {'ID': 'SRX554548', 'study': 'PRJNA246723', 'hours': 24, 'all_SRR': ['SRR1300805', 'SRR1300806'], 'tissue': 'human_PBMCs', 'individual': 2},
+    {'ID': 'SRX554549', 'study': 'PRJNA246723', 'hours': 48, 'all_SRR': ['SRR1300807', 'SRR1300808'], 'tissue': 'human_PBMCs', 'individual': 2},
+    {'ID': 'SRX554550', 'study': 'PRJNA246723', 'hours': 84, 'all_SRR': ['SRR1300809', 'SRR1300810'], 'tissue': 'human_PBMCs', 'individual': 2},
+    {'ID': 'SRX554551', 'study': 'PRJNA246723', 'hours': 0, 'all_SRR': ['SRR1300811', 'SRR1300812'], 'tissue': 'human_PBMCs', 'individual': 3},
+    {'ID': 'SRX554552', 'study': 'PRJNA246723', 'hours': 12, 'all_SRR': ['SRR1300813', 'SRR1300814'], 'tissue': 'human_PBMCs', 'individual': 3},
+    {'ID': 'SRX554553', 'study': 'PRJNA246723', 'hours': 24, 'all_SRR': ['SRR1300815', 'SRR1300816'], 'tissue': 'human_PBMCs', 'individual': 3},
+    {'ID': 'SRX554554', 'study': 'PRJNA246723', 'hours': 48, 'all_SRR': ['SRR1300817', 'SRR1300818'], 'tissue': 'human_PBMCs', 'individual': 3},
+    {'ID': 'SRX554555', 'study': 'PRJNA246723', 'hours': 84, 'all_SRR': ['SRR1300819', 'SRR1300820'], 'tissue': 'human_PBMCs', 'individual': 3},
+    {'ID': 'SRX554556', 'study': 'PRJNA246723', 'hours': 0, 'all_SRR': ['SRR1300821', 'SRR1300822'], 'tissue': 'human_PBMCs', 'individual': 4},
+    {'ID': 'SRX554557', 'study': 'PRJNA246723', 'hours': 12, 'all_SRR': ['SRR1300823', 'SRR1300824'], 'tissue': 'human_PBMCs', 'individual': 4},
+    {'ID': 'SRX554558', 'study': 'PRJNA246723', 'hours': 24, 'all_SRR': ['SRR1300825', 'SRR1300826'], 'tissue': 'human_PBMCs', 'individual': 4},
+    {'ID': 'SRX554559', 'study': 'PRJNA246723', 'hours': 48, 'all_SRR': ['SRR1300827', 'SRR1300828'], 'tissue': 'human_PBMCs', 'individual': 4},
+    {'ID': 'SRX554560', 'study': 'PRJNA246723', 'hours': 84, 'all_SRR': ['SRR1300829', 'SRR1300830'], 'tissue': 'human_PBMCs', 'individual': 4},
 
 
     ### Degradation study in metastatic tumors in bone
@@ -271,7 +272,22 @@ samples = [
     {'ID': 'SRX1703844', 'rin_score': 8.4, 'all_SRR': ['SRR3380743', 'SRR3380744'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'},
     {'ID': 'SRX1703842', 'rin_score': 5.9, 'all_SRR': ['SRR3380739', 'SRR3380740'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'},
     {'ID': 'SRX1703845', 'rin_score': 8.6, 'all_SRR': ['SRR3380746', 'SRR3380745'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'},
-    {'ID': 'SRX1703843', 'rin_score': 7.6, 'all_SRR': ['SRR3380741', 'SRR3380742'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'}
+    {'ID': 'SRX1703843', 'rin_score': 7.6, 'all_SRR': ['SRR3380741', 'SRR3380742'], 'study': 'SRP073267', 'tissue': 'UHR_degraded'},
+
+
+    #Mouse muscle
+    {'ID': 'SRX22553696', 'study': 'PRJNA1041739', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX22553697', 'study': 'PRJNA1041739', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX22553698', 'study': 'PRJNA1041739', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX22553699', 'study': 'PRJNA1041739', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX22553700', 'study': 'PRJNA1041739', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX22553701', 'study': 'PRJNA1041739', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX24786521', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX24786522', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX24786523', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX24786524', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX24786525', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    {'ID': 'SRX24786526', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
 ]
 
 for sample in samples:

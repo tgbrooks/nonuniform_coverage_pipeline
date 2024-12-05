@@ -22,6 +22,7 @@ genome_by_tissue = {
     "UHR_degraded": genomes['GRCh38'],
     "human_PBMCs": genomes['GRCh38'],
     "human_bone": genomes['GRCh38'],
+    "mouse_muscle": genomes['GRCm38'],
 }
 gtf_by_name = {x['name']:x['gtf'] for x in genome_by_tissue.values()}
 
@@ -77,14 +78,14 @@ rule all:
         #"results/url.txt",
         #"results/alpine/liver/",
         #"results/alpine_fit_plots/liver/",
-        #"results/alpine_fit_plots/UHR/",
-        #"results/alpine_fit_plots/human_bone/",
         "results/alpine_fit_plots/UHR_degraded/",
+        "results/alpine_fit_plots/mouse_muscle/",
+        "results/transcript_coverage_plots/human_PBMCs/",
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
         #"results/testis/pcr_dupe_rate_coverage_plot/",
-        #"results/all_coverage.parquet",
-        #"results/selected_genomic_sequences.txt"
+        "results/all_coverage.parquet",
+        "results/selected_genomic_sequences.txt"
 
 rule generate_sif:
     input:
@@ -461,7 +462,7 @@ rule sample_info:
             .select(pl.all().cast(pl.Utf8))\
             .write_csv(f"results/{wildcards.tissue}.sample_info.txt", separator="\t")
 
-TISSUES_TO_AGGREGATE = ["liver", "UHR"]
+TISSUES_TO_AGGREGATE = ["liver", "UHR", "UHR_degraded", "mouse_muscle"]
 rule aggregate_coverage:
     input:
         expand("results/alpine_fits/{tissue}/", tissue=TISSUES_TO_AGGREGATE)
@@ -488,7 +489,7 @@ rule aggregate_coverage:
 
 rule extract_genomic:
     input:
-        expand("results/{tissue}/high_expressed_single_isoform_genes.txt", tissue=TISSUES_TO_AGGREGATE),
+        expand("data/{tissue}/high_expressed_single_isoform_genes.txt", tissue=TISSUES_TO_AGGREGATE),
         sqlites = expand("data/{genome_name}.gtf.sqlite", genome_name=["Mus_musculus.GRCm38.102", "GRCh38.ensemblv109"]),
         sif = "images/alpine.sif",
     output:
@@ -499,4 +500,43 @@ rule extract_genomic:
         "images/alpine.sif"
     script:
         "scripts/extract_genomic.R"
+
+rule transcript_coverage:
+    input:
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['name']}.gtf.sqlite",
+        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
+        bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
+        transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
+    output:
+        cov = "data/{sample_id}/transcript_coverage.txt"
+    resources:
+        mem_mb = 12_000,
+    container:
+        "images/alpine.sif"
+    script:
+        "scripts/transcript_coverage.R"
+
+rule aggregate_transcript_coverage:
+    input:
+        cov = lambda wildcards: expand("data/{sample_id}/transcript_coverage.txt", sample_id=samples_by_tissue[wildcards.tissue]),
+    output:
+        cov = "results/transcript_coverage/{tissue}.transcript_coverage.txt.gz",
+    resources:
+        mem_mb = 12_000
+    script:
+        "scripts/aggregate_transcript_coverage.py"
+
+rule plot_transcript_coverage:
+    input:
+        cov = "results/transcript_coverage/{tissue}.transcript_coverage.txt.gz",
+        sample_info = "results/{tissue}.sample_info.txt",
+        sif = "images/alpine.sif",
+    output:
+        outdir = directory("results/transcript_coverage_plots/{tissue}/"),
+    resources:
+        mem_mb = 12_000,
+    container:
+        "images/alpine.sif",
+    script:
+        "scripts/plot_transcript_coverage.R"
 

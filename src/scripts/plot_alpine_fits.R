@@ -64,7 +64,7 @@ if (length(select_genes) > 0) {
     )
 }
 
-if ("rin_score" %in% colnames(sample_info)) {
+if (("rin_score" %in% colnames(sample_info)) & (any(~is.na(sample_info$rin_score)))) {
     # BY RIN SCORE
     select_cov <- cov_table[cov_table$gene %in% select_genes,] %>%
         left_join(sample_info, by=join_by(sample == ID)) %>%
