@@ -47,9 +47,12 @@ def processed_fastq_files(sample_id):
   else:
     return ["data/{sample_id/processed_fastqs/R1.fastq"]
 
+def is_paired(sample_id):
+  return num_reads(sample_id) > 1
+
 def can_alpine(sample_id):
   # Alpine requires paired-end data
-  return num_reads(sample_id) > 1
+  return is_paired(sample_id)
 
 def get_readlen(sample_id):
   fastq_dir = pathlib.Path(str(checkpoints.extract_fastq.get(sample_id = sample_id).output))
@@ -66,7 +69,24 @@ def get_readlen(sample_id):
   #      return star_read_len // n # If paired-end, STAR reports both reads summed together
   #  raise Exception(f"Could not identify a read length for {sample_id}")
 
-    
+def get_strandedness(sample_id):
+    import polars as pl
+    quants = pl.read_csv(
+        f"data/{sample_id}/bam/ReadsPerGene.out.tab",
+        separator="\t",
+        has_header = False,
+        new_columns = ["gene_id", "unstranded", "forward", "reverse"],
+        n_rows = 2000,# just base off the first 2000 genes for speed
+    )[4:,:] #skip first 4 summary columns
+    fwd = sum(quants['forward'])
+    rev = sum(quants['reverse'])
+    if fwd > 5*rev:
+        return "forward"
+    elif rev > 5*fwd:
+        return "reverse"
+    else:
+        return "unstranded"
+
 rule all:
     input:
         #expand("data/{sample_id}/bam/Aligned.sortedByCoord.out.bam", sample_id = sample_ids),
@@ -79,8 +99,10 @@ rule all:
         #"results/alpine/liver/",
         #"results/alpine_fit_plots/liver/",
         "results/alpine_fit_plots/UHR_degraded/",
+        "results/alpine_fit_plots/UHR/",
         "results/alpine_fit_plots/mouse_muscle/",
         "results/transcript_coverage_plots/human_PBMCs/",
+        "results/coverage_type_comparison/liver/",
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
         #"results/testis/pcr_dupe_rate_coverage_plot/",
@@ -507,10 +529,14 @@ rule transcript_coverage:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
+        fastq = "data/{sample_id}/fastq", # for the paired param
     output:
         cov = "data/{sample_id}/transcript_coverage.txt"
     resources:
         mem_mb = 12_000,
+    params:
+        paired = lambda wildcards: is_paired(wildcards.sample_id),
+        strandedness = lambda wildcards: get_strandedness(wildcards.sample_id),
     container:
         "images/alpine.sif"
     script:
@@ -540,3 +566,17 @@ rule plot_transcript_coverage:
     script:
         "scripts/plot_transcript_coverage.R"
 
+
+rule plot_coverage_type_comparison:
+    input:
+        cov = "results/transcript_coverage/{tissue}.transcript_coverage.txt.gz",
+        sample_info = "results/{tissue}.sample_info.txt",
+        sif = "images/alpine.sif",
+    output:
+        outdir = directory("results/coverage_type_comparison/{tissue}/"),
+    resources:
+        mem_mb = 12_000,
+    container:
+        "images/alpine.sif",
+    script:
+        "scripts/plot_coverage_type_comparison.R"
