@@ -35,6 +35,7 @@ if (length(select_genes) > 0) {
         left_join(sample_info, by=join_by(sample == ID)) %>%
         group_by(sample, gene) %>%
         mutate(rel_read_depth = actual / max(actual)) %>%
+        arrange(study) %>%
         ungroup()
     ggplot(
             data = select_cov,
@@ -64,7 +65,7 @@ if (length(select_genes) > 0) {
     )
 }
 
-if (("rin_score" %in% colnames(sample_info)) & (any(~is.na(sample_info$rin_score)))) {
+if (("rin_score" %in% colnames(sample_info)) & (any(!is.na(sample_info$rin_score)))) {
     # BY RIN SCORE
     select_cov <- cov_table[cov_table$gene %in% select_genes,] %>%
         left_join(sample_info, by=join_by(sample == ID)) %>%
