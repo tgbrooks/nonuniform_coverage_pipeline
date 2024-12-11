@@ -43,9 +43,9 @@ def num_reads(sample_id):
 
 def processed_fastq_files(sample_id):
   if num_reads(sample_id) > 1:
-    return [f"data/{wildcards.sample_id}/processed_fastqs/R1.fastq", f"data/{wildcards.sample_id}/processed_fastqs/R2.fastq"]
+    return [f"data/{sample_id}/processed_fastqs/R1.fastq", f"data/{sample_id}/processed_fastqs/R2.fastq"]
   else:
-    return ["data/{sample_id/processed_fastqs/R1.fastq"]
+    return [f"data/{sample_id}/processed_fastqs/R1.fastq"]
 
 def is_paired(sample_id):
   return num_reads(sample_id) > 1
@@ -220,23 +220,23 @@ rule process_fastqs:
               # Nothing to do
               concat_R1.rename(R1_out)
 
-checkpoint make_bam:
+rule make_bam:
     input:
         genome = lambda wildcards: genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['dir'],
         reads = "data/{sample_id}/processed_fastqs",
+        raw_reads = "data/{sample_id}/fastq", # for checkpoint dependence, not directly needed
     output:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         quants = "data/{sample_id}/bam/ReadsPerGene.out.tab",
         log = "data/{sample_id}/bam/Log.final.out",
     params:
+        fastq_files = lambda wildcards: processed_fastq_files(wildcards.sample_id),
         outdir = "data/{sample_id}/bam/",
     threads: 6
     resources:
         mem_mb = 36_000,
-    run:
-        nr = num_reads(wildcards.sample_id)
-        cmd = f"STAR --runThreadN {threads} --genomeDir {input.genome} --readFilesIn `find {input.reads} -name *fastq` --outFileNamePrefix {params.outdir} --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts"
-        shell(cmd)
+    shell:
+        "STAR --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {params.fastq_files} --outFileNamePrefix {params.outdir} --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts"
 
 rule make_coverage:
     input:
