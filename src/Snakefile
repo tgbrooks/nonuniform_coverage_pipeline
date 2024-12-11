@@ -487,7 +487,15 @@ rule sample_info:
 TISSUES_TO_AGGREGATE = ["liver", "UHR", "UHR_degraded", "mouse_muscle"]
 rule aggregate_coverage:
     input:
-        expand("results/alpine_fits/{tissue}/", tissue=TISSUES_TO_AGGREGATE)
+        lambda wildcards: [f"results/alpine_fits/{tissue}/{sample_id}.coverage_table.txt"
+                for tissue in TISSUES_TO_AGGREGATE
+                for sample_id in samples_by_tissue[tissue]
+                    if can_alpine(sample_id)]
+    params:
+        sample_ids = lambda wildcards: [sample_id
+                for tissue in TISSUES_TO_AGGREGATE
+                for sample_id in samples_by_tissue[tissue]
+                    if can_alpine(sample_id)]
     output:
         all = "results/all_coverage.parquet"
     resources:
@@ -497,7 +505,10 @@ rule aggregate_coverage:
         all_df = []
         for covdir, tissue in zip(input, TISSUES_TO_AGGREGATE):
             print(covdir)
-            for covfile in pathlib.Path(covdir).glob("*.txt"):
+            for sample_id in samples_by_tissue[tissue]:
+                if sample_id not in params.sample_ids:
+                    continue
+                covfile = pathlib.Path(covdir) / f"{sample_id}.coverage_table.txt"
                 print(covfile)
                 df = pl.read_csv(covfile, separator="\t")
                 sample_id = df['sample'][0]
