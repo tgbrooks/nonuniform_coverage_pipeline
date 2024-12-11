@@ -101,6 +101,7 @@ rule all:
         "results/alpine_fit_plots/UHR_degraded/",
         "results/alpine_fit_plots/UHR/",
         "results/alpine_fit_plots/mouse_muscle/",
+        "results/hexamer_correlations/liver.hexamer_correlations.txt",
         "results/transcript_coverage_plots/human_PBMCs/",
         "results/coverage_type_comparison/liver/",
         #"results/alpine_rnafold_fits/liver/",
@@ -591,3 +592,32 @@ rule plot_coverage_type_comparison:
         "images/alpine.sif",
     script:
         "scripts/plot_coverage_type_comparison.R"
+
+rule compute_hexamer_bias:
+    input:
+        fastq = "data/{sample_id}/processed_fastqs",
+    output:
+        hexamer = "data/{sample_id}/hexamer_bias.txt",
+    script:
+        "scripts/compute_hexamer_bias.py"
+
+rule correlate_hexamer_bias:
+    input:
+        hexamer = "data/{sample_id}/hexamer_bias.txt",
+        cov = "data/{sample_id}/transcript_coverage.txt",
+        sequence = "results/selected_genomic_sequences.txt",
+    params:
+        strandedness = lambda wildcards: get_strandedness(wildcards.sample_id)
+    output:
+        corr = "data/{sample_id}/hexamer_correlation.txt"
+    script:
+        "scripts/correlate_hexamer_bias.R"
+
+rule aggregate_hexamer_correlation:
+    input:
+        hexamer = lambda wildcards: expand("data/{sample_id}/hexamer_correlation.txt", sample_id=samples_by_tissue[wildcards.tissue])
+    output:
+        "results/hexamer_correlations/{tissue}.hexamer_correlations.txt",
+    run:
+        import polars as pl
+        pl.concat(pl.read_csv(hex, separator="\t") for hex in input.hexamer).write_csv(output, separator="\t")
