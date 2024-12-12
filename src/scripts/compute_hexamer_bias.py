@@ -2,7 +2,7 @@ import pathlib
 import polars as pl
 
 fastq_dir = pathlib.Path(snakemake.input.fastq)
-N_BASES = 6
+N_BASES = 12
 MAX_NUM_SEQUENCES = 1_000_000
 
 def zeros():
