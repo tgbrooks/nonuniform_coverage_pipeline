@@ -504,12 +504,11 @@ rule aggregate_coverage:
     run:
         import polars as pl
         all_df = []
-        for covdir, tissue in zip(input, TISSUES_TO_AGGREGATE):
-            print(covdir)
+        for tissue in TISSUES_TO_AGGREGATE:
             for sample_id in samples_by_tissue[tissue]:
                 if sample_id not in params.sample_ids:
                     continue
-                covfile = pathlib.Path(covdir) / f"{sample_id}.coverage_table.txt"
+                covfile = f"results/alpine_fits/{tissue}/{sample_id}.coverage_table.txt"
                 print(covfile)
                 df = pl.read_csv(covfile, separator="\t")
                 sample_id = df['sample'][0]
