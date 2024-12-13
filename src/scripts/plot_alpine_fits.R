@@ -39,7 +39,7 @@ if (length(select_genes) > 0) {
         ungroup()
     ggplot(
             data = select_cov,
-            aes(x=pos, y=rel_read_depth)
+            aes(x=pos / 1000, y=rel_read_depth)
         ) +
         facet_grid(
             rows=vars(study),
@@ -50,9 +50,9 @@ if (length(select_genes) > 0) {
             aes(color = sample_num),
         ) +
         labs(
-            x = "Position",
-            y = "Normalized Read Depth",
-            color = "Sample\nNumber"
+            x = "Position (kb)",
+            y = "Normalized read depth",
+            color = "Sample\nnumber"
         ) +
         theme(
             axis.text.y = element_blank(),
@@ -74,7 +74,7 @@ if (("rin_score" %in% colnames(sample_info)) & (any(!is.na(sample_info$rin_score
         ungroup()
     ggplot(
             data = select_cov,
-            aes(x=pos, y=rel_read_depth, group=sample)
+            aes(x=pos / 1000, y=rel_read_depth, group=sample)
         ) +
         facet_grid(
             cols = vars(gene),
@@ -85,8 +85,8 @@ if (("rin_score" %in% colnames(sample_info)) & (any(!is.na(sample_info$rin_score
         ) +
         scale_color_viridis_c(option = "viridis", limits=c(0,10)) +
         labs(
-            x = "Position",
-            y = "Normalized Read Depth",
+            x = "Position (kb)",
+            y = "Normalized read depth",
             color = "RIN score"
         ) +
         theme(
@@ -108,7 +108,7 @@ for (gene in unique(cov_table$gene)) {
   print(gene_cov |> colnames())
   ggplot(
           data = gene_cov,
-          aes(x=pos, y=actual)
+          aes(x=pos / 1000, y=actual)
       ) +
       facet_grid(
           cols=vars(sample_num),
@@ -123,8 +123,8 @@ for (gene in unique(cov_table$gene)) {
           color = "red"
       ) +
       labs(
-          x = "Position",
-          y = "Read Depth",
+          x = "Position (kb)",
+          y = "Read depth",
           title = "Alpine model fits"
       )
   ggsave(
