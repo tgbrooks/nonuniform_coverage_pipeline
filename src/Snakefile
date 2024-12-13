@@ -595,6 +595,7 @@ rule plot_coverage_type_comparison:
 rule compute_hexamer_bias:
     input:
         fastq = "data/{sample_id}/processed_fastqs",
+        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
     output:
         hexamer = "data/{sample_id}/hexamer_bias.txt",
     script:
@@ -615,14 +616,10 @@ rule correlate_hexamer_bias:
 rule aggregate_hexamer_correlation:
     input:
         hexamer = lambda wildcards: [f"data/{sample_id}/hexamer_correlation.txt" for sample_id in samples_by_tissue[wildcards.tissue]
-                                            if get_strandedness(sample_id) == "reverse" and is_paired(sample_id)]
+                                            if get_strandedness(sample_id) == "reverse" and is_paired(sample_id)],
+        sample_info = "results/{tissue}.sample_info.txt",
     output:
-        "results/hexamer_correlation/{tissue}.hexamer_correlations.txt",
-    run:
-        import polars as pl
-        data = []
-        for file in input.hexamer:
-            sample_id = pathlib.Path(file).parent.name
-            study = samples_by_id[sample_id]['study']
-            data.append(pl.read_csv(file, separator="\t").with_columns(sample_id=pl.lit(sample_id), study = pl.lit(study)))
-        pl.concat(data).write_csv(output[0], separator="\t")
+        tsv = "results/hexamer_correlation/{tissue}.hexamer_correlations.txt",
+        pvalue_fig = "results/hexamer_correlation/{tissue}.hexamer_correlations.pvalues.png",
+    script:
+        "scripts/aggregate_hexamer_correlation.py"
