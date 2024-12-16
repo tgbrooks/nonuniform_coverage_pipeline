@@ -108,7 +108,11 @@ rule all:
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
         #"results/testis/pcr_dupe_rate_coverage_plot/",
         "results/all_coverage.parquet",
-        "results/selected_genomic_sequences.txt"
+        "results/selected_genomic_sequences.txt",
+        "results/liver/global_valley_scores.txt",
+        "results/UHR_degraded/global_valley_scores.txt",
+        "results/liver/coverage_distance.txt",
+        "results/UHR/coverage_distance.txt",
 
 rule generate_sif:
     input:
@@ -623,3 +627,51 @@ rule aggregate_hexamer_correlation:
         pvalue_fig = "results/hexamer_correlation/{tissue}.hexamer_correlations.pvalues.png",
     script:
         "scripts/aggregate_hexamer_correlation.py"
+
+rule compute_global_valley_score:
+    input:
+        cov = lambda wildcards: f"results/alpine_fits/{samples_by_id[wildcards.sample_id]['tissue']}/{wildcards.sample_id}.coverage_table.txt"
+    output:
+        gvs = "data/{sample_id}/global_valley_score.txt"
+    container:
+        "images/alpine.sif"
+    script:
+        "scripts/compute_global_valley_score.R"
+
+rule aggregate_gvs:
+    input:
+        gvs = lambda wildcards: [f"data/{sample_id}/global_valley_score.txt"
+                    for sample_id in samples_by_tissue[wildcards.tissue]
+                        if can_alpine(sample_id)],
+        sample_info = "results/{tissue}.sample_info.txt"
+    output:
+        gvs = "results/{tissue}/global_valley_scores.txt"
+    run:
+        import polars as pl
+        temp = []
+        for sample_id in samples_by_tissue[wildcards.tissue]:
+            if not can_alpine(sample_id):
+                continue
+            gvs = f"data/{sample_id}/global_valley_score.txt"
+            temp.append(pl.read_csv(gvs, separator="\t").with_columns(sample_id = pl.lit(sample_id)))
+        all = pl.concat(temp)
+        sample_info = pl.read_csv(input.sample_info, separator="\t")
+        all.join(sample_info, left_on="sample_id", right_on="ID").write_csv(output.gvs, separator="\t")
+
+
+rule compute_coverage_distance:
+    input:
+        cov = lambda wildcards: [f"results/alpine_fits/{wildcards.tissue}/{sample_id}.coverage_table.txt"
+                    for sample_id in samples_by_tissue[wildcards.tissue]
+                        if can_alpine(sample_id)]
+    output:
+        "results/{tissue}/coverage_distance.txt"
+    container:
+        "images/alpine.sif"
+    params:
+        sample_ids = lambda wildcards: [sample_id for sample_id in samples_by_tissue[wildcards.tissue]
+                            if can_alpine(sample_id)]
+    resources:
+        mem_mb = 6_000
+    script:
+        "scripts/compute_coverage_distance.R"
