@@ -3,24 +3,23 @@ library(dplyr)
 library(ggplot2)
 
 sample_ids = c(
-    "SRX4080514",
-    "SRX4080520",
-    #"SRX6902444",
-    #"SRX6902450",
-    #"SRX3304756",
-    #"SRX3304764",
-    "SRX4393368",
-    "SRX4393369",
-    "SRX16386863",
-    "SRX16386864",
-    "SRX14468350",
-    "SRX14468347",
-    "SRX13396189",
-    "SRX13396186",
-    "SRX11694510",
-    "SRX11694499"
+    "SRX302130",
+    "SRX302146",
+    "SRX302162",
+    "SRX302178",
+    "SRX302514",
+    "SRX302529",
+    "SRX302544",
+    "SRX302559",
+    "SRX302874",
+    "SRX302890",
+    "SRX302906",
+    "SRX302922",
+    "SRX302574",
+    "SRX302194",
+    "SRX302938"
 )
-tissue <- "liver"
+tissue <- "UHR"
 
 
 ### BEGIN Functions
@@ -64,7 +63,7 @@ sample_info <- read_tsv(paste0("results/", tissue, ".sample_info.txt")) %>%
     mutate(sample_num = as.factor(sample_num))
 
 # Plot for the paper
-select_genes <- c("ENSMUST00000023559", "ENSMUST00000028995", "ENSMUST00000047973")
+select_genes <- c("ENST00000380680", "ENST00000604000", "ENST00000426077")
 select_cov <- cov_table[cov_table$gene %in% select_genes,] %>%
     left_join(sample_info, by=join_by(sample == ID)) %>%
     group_by(sample, gene) %>%
@@ -94,7 +93,7 @@ ggplot(
         axis.ticks = element_blank()
     )
 ggsave(
-    paste("results", "scratch", "zoom.liver.selected_genes.replicates.png", sep="/"),
+    paste("results", "scratch", "zoom.UHR.selected_genes.replicates.png", sep="/"),
     width = 7,
     height = 7,
 )

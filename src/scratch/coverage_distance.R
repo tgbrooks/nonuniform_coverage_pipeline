@@ -1,5 +1,9 @@
 library(tidyverse)
 
+shapes <- function(x) {
+    c("circle", "circle open")
+}
+
 cor <- read_tsv("results/UHR/coverage_distance.txt")
 sample_info <- read_tsv("results/UHR.sample_info.txt")
 data <- cor |>
@@ -8,30 +12,41 @@ data <- cor |>
     mutate(
         study1 = str_extract(study1, "PRJNA208369_([A-Z]+)", group=1),
         study2 = str_extract(study2, "PRJNA208369_([A-Z]+)", group=1),
-    )
+    ) |>
+    mutate(within = case_when(study1 == study2 ~ "within", study1 != study2 ~ "between"))
 
-within_corr <- data |> filter(study1 == study2) |> group_by(study1) |> summarize(cov_corr = mean(cov_corr), local_corr = mean(local_corr))
-out_corr <- data |> filter(study1 != study2) |> group_by(study1, study2) |> summarize(cov_corr = mean(cov_corr), local_corr = mean(local_corr), .groups="drop")
-
-ggplot(data, aes(x = study2, y = local_corr, color = study2)) +
+### LOCAL CORRELATION UHR
+ggplot(data, aes(x = study2, y = local_corr, color = study2, shape = within)) +
     facet_grid(
         rows = "study1",
     ) +
     geom_jitter(
-        data = data |> filter(study1 != study2),
-        position=position_jitter(width=0.3, height=0),
-        shape = "circle open"
-    ) +
-    geom_jitter(
-        data = data |> filter(study1 == study2),
         position=position_jitter(width=0.3, height=0),
     ) +
+    scale_shape_manual(values = c(1,16), name = "Correlation sites") +
     labs(
          color = "Site",
          x = "Site",
-         y = "Local correlation"
+         y = "Local coverage correlation"
+    )
+    #ylim(0.7, 1.0)
+ggsave("results/scratch/UHR.local.coverage_distance.png", width=5, height=5)
+
+### GLOBAL CORRELATION UHR
+ggplot(data, aes(x = study2, y = cov_corr, color = study2, shape = within)) +
+    facet_grid(
+        rows = "study1",
     ) +
-    ylim(0.7, 1.0)
+    geom_jitter(
+        position=position_jitter(width=0.3, height=0),
+    ) +
+    scale_shape_manual(values = c(1,16), name = "Correlation sites") +
+    labs(
+         color = "Site",
+         x = "Site",
+         y = "Coverage correlation"
+    )
+    #ylim(0.7, 1.0)
 ggsave("results/scratch/UHR.coverage_distance.png", width=5, height=5)
 
 
@@ -39,30 +54,41 @@ cor <- read_tsv("results/liver/coverage_distance.txt")
 sample_info <- read_tsv("results/liver.sample_info.txt")
 data <- cor |>
     left_join(sample_info |> select(sample_id1 = ID, study1 = study), by = "sample_id1") |>
-    left_join(sample_info |> select(sample_id2 = ID, study2 = study), by = "sample_id2")
+    left_join(sample_info |> select(sample_id2 = ID, study2 = study), by = "sample_id2") |>
+    mutate(within = case_when(study1 == study2 ~ "within", study1 != study2 ~ "between"))
 
-within_corr <- data |> filter(study1 == study2) |> group_by(study1) |> summarize(cov_corr = mean(cov_corr), local_corr = mean(local_corr))
-out_corr <- data |> filter(study1 != study2) |> group_by(study1, study2) |> summarize(cov_corr = mean(cov_corr), local_corr = mean(local_corr), .groups="drop")
-
-
-ggplot(data, aes(x = study2, y = cov_corr, color = study2)) +
+#### LOCAL CORRELATION LIVER
+ggplot(data, aes(x = study2, y = local_corr, color = study2, shape = within)) +
     facet_grid(
         rows = "study1",
     ) +
     geom_jitter(
-        data = data |> filter(study1 != study2),
-        position=position_jitter(width=0.2, height=0),
-        shape = "circle open"
-    ) +
-    geom_jitter(
-        data = data |> filter(study1 == study2),
         position=position_jitter(width=0.2, height=0),
     ) +
+    scale_shape_manual(values = c(1,16), name = "Correlation sites") +
     labs(
          color = "Site",
          x = "Site",
-         y = "Global correlation"
+         y = "Local coverage correlation"
     ) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-    ylim(0.6, 1.0)
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    #ylim(0.6, 1.0)
+ggsave("results/scratch/liver.local.coverage_distance.png", width=5, height=7)
+
+#### COVERAGE CORRELATION LIVER
+ggplot(data, aes(x = study2, y = cov_corr, color = study2, shape = within)) +
+    facet_grid(
+        rows = "study1",
+    ) +
+    geom_jitter(
+        position=position_jitter(width=0.2, height=0),
+    ) +
+    scale_shape_manual(values = c(1,16), name = "Correlation sites") +
+    labs(
+         color = "Site",
+         x = "Site",
+         y = "Coverage correlation"
+    ) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    #ylim(0.6, 1.0)
 ggsave("results/scratch/liver.coverage_distance.png", width=5, height=7)
