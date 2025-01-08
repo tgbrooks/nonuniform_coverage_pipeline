@@ -9,3 +9,4 @@ temp
 .snakemake
 __pycache__
 Rplots.pdf
+.ncbi
