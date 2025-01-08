@@ -284,12 +284,13 @@ samples = [
     {'ID': 'SRX22553699', 'study': 'PRJNA1041739', 'tissue': 'mouse_muscle'},
     {'ID': 'SRX22553700', 'study': 'PRJNA1041739', 'tissue': 'mouse_muscle'},
     {'ID': 'SRX22553701', 'study': 'PRJNA1041739', 'tissue': 'mouse_muscle'},
-    {'ID': 'SRX24786521', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
-    {'ID': 'SRX24786522', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
-    {'ID': 'SRX24786523', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
-    {'ID': 'SRX24786524', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
-    {'ID': 'SRX24786525', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
-    {'ID': 'SRX24786526', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    # Note: for some reason, these align very slowly but have good mapping stats
+    #{'ID': 'SRX24786521', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    #{'ID': 'SRX24786522', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    #{'ID': 'SRX24786523', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    #{'ID': 'SRX24786524', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    #{'ID': 'SRX24786525', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+    #{'ID': 'SRX24786526', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
 ]
 
 for sample in samples:
