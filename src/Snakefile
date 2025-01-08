@@ -113,6 +113,8 @@ rule all:
         "results/UHR_degraded/global_valley_scores.txt",
         "results/liver/coverage_distance.txt",
         "results/UHR/coverage_distance.txt",
+        "results/UHR_degraded/corrected_coverage_table.txt",
+        "results/UHR_degraded/corrected_global_valley_score.txt",
 
 rule generate_sif:
     input:
@@ -675,3 +677,30 @@ rule compute_coverage_distance:
         mem_mb = 6_000
     script:
         "scripts/compute_coverage_distance.R"
+
+rule correct_coverage_for_3prime:
+    input:
+        cov = lambda wildcards: [f"results/alpine_fits/{wildcards.tissue}/{sample_id}.coverage_table.txt"
+                    for sample_id in samples_by_tissue[wildcards.tissue]
+                        if can_alpine(sample_id)]
+    output:
+        corrected = "results/{tissue}/corrected_coverage_table.txt"
+    params:
+        sample_ids = lambda wildcards: [sample_id for sample_id in samples_by_tissue[wildcards.tissue]
+                            if can_alpine(sample_id)]
+    container:
+        "images/alpine.sif"
+    resources:
+        mem_mb = 6_000
+    script:
+        "scripts/correct_coverage_for_3prime.R"
+
+rule corrected_for_3prime_global_valley_score:
+    input:
+        cov = "results/{tissue}/corrected_coverage_table.txt"
+    output:
+        gvs = "results/{tissue}/corrected_global_valley_score.txt"
+    container:
+        "images/alpine.sif"
+    script:
+        "scripts/compute_global_valley_score.R"

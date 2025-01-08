@@ -8,12 +8,16 @@ cov_file <- snakemake@input$cov
 
 ### BEGIN Preprocessing data
 coverage <- read_tsv(cov_file) |>
-    rename(gene_id = gene, cov = actual) |>
-    group_by(gene_id) |>
-    ungroup()
+    rename(gene_id = gene, cov = actual)
+
+if ("sample" %in% colnames(coverage)) {
+    group_vars = c("sample", "gene_id")
+} else {
+    group_vars = c("gene_id")
+}
 
 coverage_stats <- coverage |>
-    group_by(gene_id) |>
+    group_by(across(all_of(group_vars))) |>
     summarize(
         transcript_length = max(pos)+1,
         mean_cov = mean(cov),
@@ -127,42 +131,17 @@ cov_conv <- coverage |>
     group_by(gene_id) |>
     mutate(conv = get_conv_result(cov, conv_sd = CONV_SD))
 
-## Get all valleys (with Gauss smoothing with std dev = 30)
+## Get all valleys (with Gauss smoothing)
 valley_results <- list()
-for(g_id in gene_ids){
-  data <- filter(cov_conv, gene_id == g_id)[["conv"]]
-  result <- tp_valley_finder(data)
+valley_results <- cov_conv |>
+    group_by(across(all_of(group_vars))) |>
+    group_modify(function(data, groups) { 
+        tp_valley_finder(data$conv)
+    })
 
-  if(nrow(result) > 0){
-    result <- result |>
-      mutate(width = right - left) |>
-      mutate(gene_id = g_id)
-  }
-  valley_results[[g_id]] <- result
-}
-combined_valley_results <- reduce(valley_results, bind_rows)
-all_valley_results <- combined_valley_results |>
-  select(gene_id, left, right, width) |>
+all_valley_results <- valley_results |>
+  select(all_of(group_vars), left, right) |>
   mutate(optimum_type = "Valley")
-
-## Get all peaks (with Gauss smoothing with std dev = 30)
-peak_results <- list()
-for(g_id in gene_ids){
-  data <- filter(cov_conv, gene_id == g_id)[["conv"]]
-  result <- tp_peak_finder(data)
-
-  if(nrow(result) > 0){
-    result <- result |>
-      mutate(width = right - left) |>
-      mutate(gene_id = g_id)
-  }
-  peak_results[[g_id]] <- result
-}
-combined_peak_results <- reduce(peak_results, bind_rows)
-
-all_peak_results <- combined_peak_results |>
-  select(gene_id, left, right, width) |>
-  mutate(optimum_type = "Peak")
 
 #### Find local regions around Peaks and Valleys
 
@@ -254,13 +233,19 @@ local_valley_score <- all_valley_results |>
     )
 
 global_valley_score <- local_valley_score |>
-    left_join(coverage_stats, by="gene_id") |>
-    group_by(gene_id) |>
+    left_join(coverage_stats, by=group_vars) |>
+    group_by(across(all_of(group_vars))) |>
     summarize(
         global_valley_score = sum(lvs / mean_cov / transcript_length),
     )
 
-results <- tibble(
-    global_valley_score = sum(global_valley_score$global_valley_score),
-)
+if ("sample" %in% colnames(coverage)) {
+    results <- global_valley_score |>
+        group_by(sample) |>
+        summarize(global_valley_score = sum(global_valley_score))
+} else {
+    results <- tibble(
+        global_valley_score = sum(global_valley_score$global_valley_score),
+    )
+}
 write_tsv(results, snakemake@output$gvs)

@@ -11,7 +11,9 @@ for (sample_id in sample_ids) {
     cov_file <- paste0("results/alpine_fits/", tissue, "/", sample_id, ".coverage_table.txt")
     temp[[length(temp)+1]] <- read_tsv(cov_file) |>
         mutate(sample_id = sample) |>
-        rename(gene_id = gene, cov = actual)
+        rename(gene_id = gene, cov = actual) |>
+        group_by(gene_id) |>
+        mutate(mean_cov = mean(cov))
 }
 coverage <- bind_rows(temp)
 print(coverage)
@@ -58,8 +60,14 @@ for (sample_id1 in sample_ids) {
         temp[[length(temp)+1]] <- tibble(
             sample_id1 = sample_id1,
             sample_id2 = sample_id2,
-            cov_corr = cor.test(both_big$cov.x, both_big$cov.y)$estimate,
-            local_corr = cor.test(both_big$cov.x - both_big$smoothed.x, both_big$cov.y - both_big$smoothed.y)$estimate,
+            cov_corr = cor.test(
+                both_big$cov.x / both_big$mean_cov.x,
+                both_big$cov.y / both_big$mean_cov.y
+            )$estimate,
+            local_corr = cor.test(
+                (both_big$cov.x - both_big$smoothed.x) / both_big$mean_cov.x,
+                (both_big$cov.y - both_big$smoothed.y) / both_big$mean_cov.y
+            )$estimate,
         )
     }
 }
