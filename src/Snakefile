@@ -23,6 +23,7 @@ genome_by_tissue = {
     "human_PBMCs": genomes['GRCh38'],
     "human_bone": genomes['GRCh38'],
     "mouse_muscle": genomes['GRCm38'],
+    "smart_seq": genomes['GRCm38'],
 }
 gtf_by_name = {x['name']:x['gtf'] for x in genome_by_tissue.values()}
 
@@ -70,9 +71,10 @@ def get_readlen(sample_id):
   #  raise Exception(f"Could not identify a read length for {sample_id}")
 
 def get_strandedness(sample_id):
+    quant_file = pathlib.Path(str(checkpoints.make_bam.get(sample_id = sample_id).output.quants))
     import polars as pl
     quants = pl.read_csv(
-        f"data/{sample_id}/bam/ReadsPerGene.out.tab",
+        quant_file,
         separator="\t",
         has_header = False,
         new_columns = ["gene_id", "unstranded", "forward", "reverse"],
@@ -103,6 +105,7 @@ rule all:
         "results/alpine_fit_plots/mouse_muscle/",
         "results/hexamer_correlation/liver.hexamer_correlations.txt",
         "results/transcript_coverage_plots/human_PBMCs/",
+        "results/transcript_coverage/smart_seq.transcript_coverage.txt.gz",
         "results/coverage_type_comparison/liver/",
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
@@ -227,7 +230,7 @@ rule process_fastqs:
               # Nothing to do
               concat_R1.rename(R1_out)
 
-rule make_bam:
+checkpoint make_bam:
     input:
         genome = lambda wildcards: genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['dir'],
         reads = "data/{sample_id}/processed_fastqs",

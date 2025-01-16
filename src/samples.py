@@ -291,6 +291,14 @@ samples = [
     #{'ID': 'SRX24786524', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
     #{'ID': 'SRX24786525', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
     #{'ID': 'SRX24786526', 'study': 'PRJNA1119486', 'tissue': 'mouse_muscle'},
+
+
+    # SMART-seq mouse hippocampus, single and bulk
+    {'ID': 'SRX5068611', 'study': 'SRP170969', 'tissue': 'smart_seq', 'seq_type': 'single-cell'},
+    {'ID': 'SRX5068640', 'study': 'SRP170969', 'tissue': 'smart_seq', 'seq_type': 'single-cell'},
+    {'ID': 'SRX5068672', 'study': 'SRP170969', 'tissue': 'smart_seq', 'seq_type': 'single-cell'},
+    {'ID': 'SRX5068708', 'study': 'SRP170969', 'tissue': 'smart_seq', 'seq_type': 'single-cell'},
+    {'ID': 'SRX5066979', 'study': 'SRP170969', 'tissue': 'smart_seq', 'seq_type': 'bulk'}, # actually from SRP170960, a different study from same group
 ]
 
 for sample in samples:
