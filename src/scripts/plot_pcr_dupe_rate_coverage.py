@@ -62,7 +62,8 @@ transcripts = pl.concat((
         pl.read_csv(transcripts_file, separator="\t").select("gene_id", "transcript_id"),
 )).filter(pl.col("gene_id").is_first_distinct())
 
-select_genes = ["ENSMUSG00000064351","ENSMUSG00000064367", "ENSMUSG00000064370",]
+#select_genes = ["ENSMUSG00000064351","ENSMUSG00000064367", "ENSMUSG00000064370",] # All mitochondrial
+select_genes = ["ENSMUSG00000064351", "ENSMUSG00000032968", "ENSMUSG00000000594"] # more mixed genes
 
 def gene_to_exon_pos(gene_id):
     gene_info = gene.filter(gene_id = gene_id)
@@ -153,7 +154,7 @@ for format in ["norm", "raw"]:
                 norm_dupe_rate = pl.col('dupe_rate') / pl.col('dupe_rate').mean().over("cycle_count"),
             )
 
-        for (cycle_count, cov_and_dupe) in all_cov_and_dupes.group_by("cycle_count"):
+        for ((cycle_count,), cov_and_dupe) in all_cov_and_dupes.group_by("cycle_count"):
             if format == "raw":
                 h, = cov_ax.plot(cov_and_dupe['loc'], cov_and_dupe['cov'], color=color_by_cycle_count[cycle_count], label="coverage")
 

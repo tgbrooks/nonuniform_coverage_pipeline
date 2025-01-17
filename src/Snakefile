@@ -109,7 +109,7 @@ rule all:
         "results/coverage_type_comparison/liver/",
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
-        #"results/testis/pcr_dupe_rate_coverage_plot/",
+        "results/testis/pcr_dupe_rate_coverage_plot/",
         "results/all_coverage.parquet",
         "results/selected_genomic_sequences.txt",
         "results/liver/global_valley_scores.txt",
