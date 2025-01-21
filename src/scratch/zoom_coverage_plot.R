@@ -22,6 +22,7 @@ sample_ids = c(
 )
 tissue <- "liver"
 
+high_exp_genes <- read_tsv("data/liver/high_expressed_single_isoform_genes.txt")
 
 ### BEGIN Functions
 ## Convolution functions
@@ -69,6 +70,8 @@ select_cov <- cov_table[cov_table$gene %in% select_genes,] %>%
     left_join(sample_info, by=join_by(sample == ID)) %>%
     group_by(sample, gene) %>%
     mutate(rel_read_depth = (actual - smoothed) / max(actual - smoothed)) %>%
+    left_join(high_exp_genes, by=join_by(gene == transcript_id)) %>%
+    mutate(full_gene = paste0(gene_name, "\n", gene)) %>%
     arrange(study) %>%
     ungroup()
 ggplot(
@@ -77,7 +80,7 @@ ggplot(
     ) +
     facet_grid(
         rows=vars(study),
-        cols=vars(gene),
+        cols=vars(full_gene),
         scales = "free",
     ) +
     coord_cartesian(xlim = c(1.7,2)) +

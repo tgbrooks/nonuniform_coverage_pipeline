@@ -13,6 +13,8 @@ for (file in snakemake@input$cov_tables) {
 }
 cov_table <- bind_rows(cov_tables)
 
+high_exp_genes <- read_tsv(snakemake@input$transcripts)
+
 sample_info <- read_tsv(snakemake@input$sample_info) %>%
     group_by(study) %>%
     mutate(sample_num = row_number()) %>%
@@ -36,14 +38,16 @@ if (length(select_genes) > 0) {
         group_by(sample, gene) %>%
         mutate(rel_read_depth = actual / max(actual)) %>%
         arrange(study) %>%
-        ungroup()
+        ungroup() %>%
+        left_join(high_exp_genes, by=join_by(gene == transcript_id)) %>%
+        mutate(full_gene = paste0(gene_name, "\n", gene))
     ggplot(
             data = select_cov,
             aes(x=pos / 1000, y=rel_read_depth)
         ) +
         facet_grid(
             rows=vars(study),
-            cols=vars(gene),
+            cols=vars(full_gene),
             scales = "free",
         ) +
         geom_path(
@@ -71,13 +75,15 @@ if (("rin_score" %in% colnames(sample_info)) & (any(!is.na(sample_info$rin_score
         left_join(sample_info, by=join_by(sample == ID)) %>%
         group_by(sample, gene) %>%
         mutate(rel_read_depth = actual / max(actual)) %>%
-        ungroup()
+        ungroup() %>%
+        left_join(high_exp_genes, by=join_by(gene == transcript_id)) %>%
+        mutate(full_gene = paste0(gene_name, "\n", gene))
     ggplot(
             data = select_cov,
             aes(x=pos / 1000, y=rel_read_depth, group=sample)
         ) +
         facet_grid(
-            cols = vars(gene),
+            cols = vars(full_gene),
             scales = "free",
         ) +
         geom_path(

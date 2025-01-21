@@ -4,6 +4,8 @@ outdir <- 'results/scratch/'
 
 cov_table <- read_tsv('results/transcript_coverage/smart_seq.transcript_coverage.txt.gz')
 
+high_exp_genes <- read_tsv("data/smart_seq/high_expressed_single_isoform_genes.txt")
+
 sample_info <- read_tsv('results/smart_seq.sample_info.txt') %>%
     group_by(study) %>%
     mutate(sample_num = row_number()) %>%
@@ -16,14 +18,16 @@ select_cov <- cov_table[cov_table$gene %in% select_genes,] %>%
     left_join(sample_info, by=join_by(sample == ID)) %>%
     group_by(sample, gene) %>%
     mutate(rel_read_depth = cov / max(cov)) %>%
-    ungroup()
+    ungroup() %>%
+    left_join(high_exp_genes, by=join_by(gene == transcript_id)) %>%
+    mutate(full_gene = paste0(gene_name, "\n", gene))
 
 ggplot(
         data = select_cov,
         aes(x=pos / 1000, y=rel_read_depth, color=seq_type, group=sample)
     ) +
     facet_grid(
-        cols=vars(gene),
+        cols=vars(full_gene),
         scales = "free",
     ) +
     geom_path() +
