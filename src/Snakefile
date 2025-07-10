@@ -1,4 +1,5 @@
 import pathlib
+import gzip
 from samples import samples
 
 genomes = {
@@ -38,15 +39,15 @@ BUCKET_DIR = "PCR_cycle_count"
 
 def num_reads(sample_id):
    # Returns 1 if single-end and 2 if paired-end
-   fastq_dir = str(checkpoints.extract_fastq.get(sample_id = sample_id).output)
-   fastq = list(pathlib.Path(fastq_dir).glob("*.fastq"))[0].name
-   return 2 if "_" in fastq else 1
+   fastq_dir = str(checkpoints.process_fastqs.get(sample_id = sample_id).output)
+   fastqs = list(pathlib.Path(fastq_dir).glob("*.fastq.gz"))
+   return len(fastqs)
 
 def processed_fastq_files(sample_id):
   if num_reads(sample_id) > 1:
-    return [f"data/{sample_id}/processed_fastqs/R1.fastq", f"data/{sample_id}/processed_fastqs/R2.fastq"]
+    return [f"data/{sample_id}/processed_fastqs/R1.fastq.gz", f"data/{sample_id}/processed_fastqs/R2.fastq.gz"]
   else:
-    return [f"data/{sample_id}/processed_fastqs/R1.fastq"]
+    return [f"data/{sample_id}/processed_fastqs/R1.fastq.gz"]
 
 def is_paired(sample_id):
   return num_reads(sample_id) > 1
@@ -56,19 +57,12 @@ def can_alpine(sample_id):
   return is_paired(sample_id)
 
 def get_readlen(sample_id):
-  fastq_dir = pathlib.Path(str(checkpoints.extract_fastq.get(sample_id = sample_id).output))
-  fastq_file = list(fastq_dir.glob("*.fastq"))[0]
-  with open(fastq_file) as f:
+  fastq_dir = pathlib.Path(str(checkpoints.process_fastqs.get(sample_id = sample_id).output))
+  fastq_file = list(fastq_dir.glob("*.fastq.gz"))[0]
+  with gzip.open(fastq_file, "rt") as f:
     f.readline()
     read = f.readline() 
     return len(read) - 1
-  #with open(f"data/{sample_id}/bam/Log.final.out") as f:
-  #  for line in f:
-  #    if "Average input read length" in line:
-  #      star_read_len = int(line.split("|")[1].strip())
-  #      n = num_reads(sample_id)
-  #      return star_read_len // n # If paired-end, STAR reports both reads summed together
-  #  raise Exception(f"Could not identify a read length for {sample_id}")
 
 def get_strandedness(sample_id):
     quant_file = pathlib.Path(str(checkpoints.make_bam.get(sample_id = sample_id).output.quants))
@@ -106,6 +100,7 @@ rule all:
         "results/hexamer_correlation/liver.hexamer_correlations.txt",
         "results/transcript_coverage_plots/human_PBMCs/",
         "results/transcript_coverage/smart_seq.transcript_coverage.txt.gz",
+        "results/transcript_coverage/UHR.transcript_coverage.txt.gz",
         "results/coverage_type_comparison/liver/",
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
@@ -143,7 +138,7 @@ rule download_srx:
         srr = "data/{sample_id}/SRR.txt",
         sif = "images/sratools.sif",
     output:
-        directory("data/{sample_id}/SRR/")
+        temp(directory("data/{sample_id}/SRR/"))
     resources:
       ncbi_download = 1,
       mem_mb = 12_000,
@@ -158,13 +153,13 @@ rule download_srx:
         """
 
 
-checkpoint extract_fastq:
+rule extract_fastq:
     input:
         srr = "data/{sample_id}/SRR.txt",
         srr_dir = "data/{sample_id}/SRR/",
         sif = "images/sratools.sif",
     output:
-        directory("data/{sample_id}/fastq")
+        temp(directory("data/{sample_id}/fastq"))
     resources:
         mem_mb = 12_000,
     container:
@@ -176,9 +171,9 @@ checkpoint extract_fastq:
         done < {input.srr}
         """
 
-rule process_fastqs:
+checkpoint process_fastqs:
     input:
-        read_dir = lambda wildcards: checkpoints.extract_fastq.get(sample_id = wildcards.sample_id).output[0]
+        read_dir = "data/{sample_id}/fastq",
     output:
         read_dir = directory("data/{sample_id}/processed_fastqs/")
     run:
@@ -186,7 +181,12 @@ rule process_fastqs:
         read_dir = pathlib.Path(input.read_dir)
         out_dir = pathlib.Path(output.read_dir)
         out_dir.mkdir()
-        if num_reads(wildcards.sample_id) > 1:
+
+        fastq_dir = str(input.read_dir)
+        fastq = list(pathlib.Path(fastq_dir).glob("*.fastq"))[0].name
+        num_reads = 2 if "_" in fastq else 1
+
+        if num_reads > 1:
             R1 = sorted([str(x) for x in read_dir.glob("*_1.fastq")])
             R2 = sorted([str(x) for x in read_dir.glob("*_2.fastq")])
             R1_out = out_dir / "R1.fastq"
@@ -211,6 +211,9 @@ rule process_fastqs:
               # Nothing to do
               concat_R1.rename(R1_out)
               concat_R2.rename(R2_out)
+
+            shell("gzip {R1_out}")
+            shell("gzip {R2_out}")
         else:
             R1 = sorted([str(x) for x in read_dir.glob("*.fastq")])
             R1_out = out_dir / "R1.fastq"
@@ -230,11 +233,11 @@ rule process_fastqs:
               # Nothing to do
               concat_R1.rename(R1_out)
 
+            shell("gzip {R1_out}")
 checkpoint make_bam:
     input:
-        genome = lambda wildcards: genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['dir'],
+        genome = lambda wildcards: ancient(genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['dir']),
         reads = "data/{sample_id}/processed_fastqs",
-        raw_reads = "data/{sample_id}/fastq", # for checkpoint dependence, not directly needed
     output:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         quants = "data/{sample_id}/bam/ReadsPerGene.out.tab",
@@ -246,7 +249,7 @@ checkpoint make_bam:
     resources:
         mem_mb = 36_000,
     shell:
-        "STAR --runThreadN {threads} --genomeDir {input.genome} --readFilesIn {params.fastq_files} --outFileNamePrefix {params.outdir} --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts"
+        "STAR --runThreadN {threads} --genomeDir {input.genome} --readFilesCommand zcat --readFilesIn {params.fastq_files} --outFileNamePrefix {params.outdir} --outSAMtype BAM SortedByCoordinate --quantMode GeneCounts"
 
 rule make_coverage:
     input:
@@ -319,7 +322,7 @@ rule run_alpine:
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
         ensdb = lambda wildcards: f"data/{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['name']}.gtf.sqlite",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
-        dummy = "data/{sample_id}/fastq",
+        dummy = "data/{sample_id}/processed_fastqs",
         sif = "images/alpine.sif",
     output:
         modelfile = "data/{sample_id}/alpine.model.rda",
@@ -357,7 +360,7 @@ rule run_alpine_rnafold:
         ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
         fragtypes = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/alpine_rnafold.fragtypes.rda",
-        dummy = "data/{sample_id}/fastq",
+        dummy = "data/{sample_id}/processed_fastqs",
         sif = "images/alpine.sif",
     output:
         modelfile = protected("data/{sample_id}/alpine_rnafold.model.rda"),
@@ -549,7 +552,7 @@ rule transcript_coverage:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
         transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
-        fastq = "data/{sample_id}/fastq", # for the paired param
+        fastq = "data/{sample_id}/processed_fastqs", # for the paired param
     output:
         cov = "data/{sample_id}/transcript_coverage.txt"
     resources:
@@ -615,6 +618,7 @@ rule correlate_hexamer_bias:
         hexamer = "data/{sample_id}/hexamer_bias.txt",
         cov = "data/{sample_id}/transcript_coverage.txt",
         sequence = "results/selected_genomic_sequences.txt",
+        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
     params:
         strandedness = lambda wildcards: get_strandedness(wildcards.sample_id)
     output:
