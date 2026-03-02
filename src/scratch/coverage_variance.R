@@ -1,6 +1,7 @@
 library(readr)
 library(dplyr)
 library(magrittr)
+library(stringr)
 
 cov <- read_tsv("results/transcript_coverage/liver.transcript_coverage.txt.gz")
 sample_info <- read_tsv("results/liver.sample_info.txt")
@@ -60,7 +61,9 @@ sample_info <- read_tsv("results/UHR.sample_info.txt") %>%
     mutate(
         library_prep_batch = case_when(
             library_id %in% c(1,2,3,4) ~ str_split_i(study, "_", 2),
-            library_id == 5 ~ "SEQC",
+            ID == "SRX302574" ~ "CNL",
+            ID == "SRX302194" ~ "BGI",
+            ID == "SRX302938" ~ "MAY",
         ),
         sequencing_batch = str_split_i(study, "_", 2),
     )
@@ -71,7 +74,7 @@ cov_downsampled <- cov %>%
     filter( pos %% 100 == 50 ) %>%
     mutate( cov_normalized = cov / mean_gene_cov) %>%
     left_join(
-        sample_info %>% select(sample = ID, study),
+        sample_info %>% select(sample = ID, study, library_prep_batch, sequencing_batch),
         by = "sample",
     )
 
