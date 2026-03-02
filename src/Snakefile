@@ -11,7 +11,7 @@ genomes = {
     },
     "GRCh38": {
         "dir": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCh38.ensemblv109",
-        "gtf": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCh38.ensemblv109/Homo_sapiens.GRCh38.109.gtf",
+        "gtf": "/project/itmatlab/index/STAR-3.7.10b_indexes/GRCh38.ensemblv109/Homo_sapiens.GRCh38.109.gtf",
         "BSgenome": "BSgenome.Hsapiens.UCSC.hg38",
         "name": "GRCh38.ensemblv109",
     },
@@ -101,7 +101,9 @@ rule all:
         "results/transcript_coverage_plots/human_PBMCs/",
         "results/transcript_coverage/smart_seq.transcript_coverage.txt.gz",
         "results/transcript_coverage/UHR.transcript_coverage.txt.gz",
+        "results/transcript_coverage/testis.transcript_coverage.txt.gz",
         "results/coverage_type_comparison/liver/",
+        expand("results/{tissue}/unannotated_splicing.txt", tissue = ["liver", "UHR", "UHR_degraded", "mouse_muscle"]),
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
         "results/testis/pcr_dupe_rate_coverage_plot/",
@@ -711,3 +713,20 @@ rule corrected_for_3prime_global_valley_score:
         "images/alpine.sif"
     script:
         "scripts/compute_global_valley_score.R"
+
+rule check_unannotated_splicing:
+    input:
+        transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
+        coverage = "results/transcript_coverage/{tissue}.transcript_coverage.txt.gz",
+        image = "images/alpine.sif",
+    output:
+        outfile = "results/{tissue}/unannotated_splicing.txt"
+    params:
+        sample_ids = lambda wildcards: [sample_id for sample_id in samples_by_tissue[wildcards.tissue]]
+    container:
+        "images/alpine.sif"
+    resources:
+        mem_mb = 6_000
+    script:
+        "scripts/check_unannotated_splicing.R"
