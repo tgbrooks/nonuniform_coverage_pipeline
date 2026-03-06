@@ -170,7 +170,6 @@ if (length(select_genes) > 0) {
             color = "Sample\nnumber"
         ) +
         scale_fill_manual(values=c("#888", "#444")) + 
-        guide_axis(major.ticks=TRUE) + 
         theme(
             axis.text.y = element_blank(),
             axis.ticks = element_blank()
