@@ -12,11 +12,11 @@ coverage_file <- snakemake@input$coverage
 output <- snakemake@output$outfile
 
 # TESTING VALUES ########
-#sample_ids <- c("SRX3357955", "SRX3357956")
-#transcript_file <- "data/testis/high_expressed_single_isoform_genes.txt"
+#sample_ids <- c( "SRX4080514", "SRX4080520", "SRX4393368", "SRX4393369", "SRX16386863", "SRX16386864", "SRX14468350", "SRX14468347", "SRX13396189", "SRX13396186", "SRX11694510", "SRX11694499")
+#transcript_file <- "data/liver/high_expressed_single_isoform_genes.txt"
 #ensembldb_sqlite <- "data/Mus_musculus.GRCm38.102.gtf.sqlite"
-#coverage_file <- "results/transcript_coverage/testis.transcript_coverage.txt.gz"
-#output <- "results/testis.novel_splice_junctions.txt"
+#coverage_file <- "results/transcript_coverage/liver.transcript_coverage.txt.gz"
+#output <- "temp.unannotated_splicing.txt"
 ##########################
 
 junction_files <- lapply(sample_ids, function(s) {paste0("data/", s, "/bam/SJ.out.tab")})
