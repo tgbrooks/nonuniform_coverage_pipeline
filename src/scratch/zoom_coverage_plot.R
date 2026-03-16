@@ -65,7 +65,8 @@ sample_info <- read_tsv(paste0("results/", tissue, ".sample_info.txt")) %>%
     mutate(sample_num = as.factor(sample_num))
 
 # Plot for the paper
-select_genes <- c("ENSMUST00000023559", "ENSMUST00000028995", "ENSMUST00000047973")
+#select_genes <- c("ENSMUST00000023559", "ENSMUST00000028995", "ENSMUST00000047973") # old paper v1 values
+select_genes <- c("ENSMUST00000025218", "ENSMUST00000025356", "ENSMUST00000027144") # for paper v2
 select_cov <- cov_table[cov_table$gene %in% select_genes,] %>%
     left_join(sample_info, by=join_by(sample == ID)) %>%
     group_by(sample, gene) %>%

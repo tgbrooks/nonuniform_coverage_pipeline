@@ -93,7 +93,7 @@ rule all:
         #"data/liver/high_expressed_single_isoform_genes.txt",
         #"results/url.txt",
         #"results/alpine/liver/",
-        #"results/alpine_fit_plots/liver/",
+        "results/alpine_fit_plots/liver/",
         "results/alpine_fit_plots/UHR_degraded/",
         "results/alpine_fit_plots/UHR/",
         "results/alpine_fit_plots/mouse_muscle/",
@@ -244,7 +244,7 @@ checkpoint make_bam:
     output:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         quants = "data/{sample_id}/bam/ReadsPerGene.out.tab",
-        junctions = "data/{sample_id}/bam/SJ.out.txt",
+        junctions = "data/{sample_id}/bam/SJ.out.tab",
         log = "data/{sample_id}/bam/Log.final.out",
     params:
         fastq_files = lambda wildcards: processed_fastq_files(wildcards.sample_id),
@@ -315,9 +315,11 @@ rule select_alpine_transcripts:
     input:
         quants = lambda wildcards: expand("data/{sample_id}/bam/ReadsPerGene.out.tab", sample_id=samples_by_tissue[wildcards.tissue]),
         ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
-        junctions = lambda wildcards: expand("data/{sample_id}/bam/SJ.out.txt", sample_id=samples_by_tissue[wildcards.tissue]),
+        junctions = lambda wildcards: expand("data/{sample_id}/bam/SJ.out.tab", sample_id=samples_by_tissue[wildcards.tissue]),
     output:
         outfile = "data/{tissue}/high_expressed_single_isoform_genes.txt"
+    resources:
+        mem_mb = 4_000
     script:
         "scripts/select_alpine_transcripts.py"
 
@@ -730,7 +732,7 @@ rule check_unannotated_splicing:
     container:
         "images/alpine.sif"
     resources:
-        mem_mb = 6_000
+        mem_mb = 12_000
     script:
         "scripts/check_unannotated_splicing.R"
 

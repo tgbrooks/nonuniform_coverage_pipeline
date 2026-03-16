@@ -2,17 +2,28 @@ library(tidyverse)
 
 outdir <- snakemake@output$outdir
 dir.create(outdir)
+cov_file <- snakemake@input$cov
+sample_info_file <- snakemake@input$sample_info
 
-cov_table <- read_tsv(snakemake@input$cov)
 
-sample_info <- read_tsv(snakemake@input$sample_info) %>%
+## TESTING VALUES
+#outdir <- "temp."
+#sample_info_file <- "results/liver.sample_info.txt"
+#cov_file <- "results/transcript_coverage/liver.transcript_coverage.txt.gz"
+
+
+cov_table <- read_tsv(cov_file)
+
+sample_info <- read_tsv(sample_info_file) %>%
     group_by(study) %>%
     mutate(sample_num = row_number()) %>%
     ungroup() %>%
     mutate(sample_num = as.factor(sample_num))
 
 # Selected for the mouse liver sample set
-select_genes <- c("ENSMUST00000023559", "ENSMUST00000028995", "ENSMUST00000047973")
+#select_genes <- c("ENSMUST00000023559", "ENSMUST00000028995", "ENSMUST00000047973") # old transcript originally chosen for revision 1
+#select_genes <- c("ENSMUSG00000058207", "ENSMUSG00000040891", "ENSMUSG00000048486")
+select_genes <- c("ENSMUST00000025918", "ENSMUST00000041589", "ENSMUST00000033477")
 
 select_cov <- cov_table[cov_table$gene %in% select_genes,] %>%
     left_join(sample_info, by=join_by(sample == ID)) %>%

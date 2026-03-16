@@ -20,4 +20,5 @@ bsub -e logs/snakemake.err \
     snakemake --profile lsf -j 100 -c 100 \
     --resources ncbi_download=3 \
     --use-singularity --singularity-args "-B /project/itmatlab/index/" \
+    --rerun-triggers mtime -- \
     "$@"

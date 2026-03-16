@@ -107,9 +107,11 @@ get_exon_cds_info <- function(tx_id) {
 
 # Plot for the paper
 if (tissue == "liver") {
-    select_genes <- c("ENSMUST00000023559", "ENSMUST00000028995", "ENSMUST00000047973")
+    #select_genes <- c("ENSMUST00000023559", "ENSMUST00000028995", "ENSMUST00000047973") #old for paper v1
+    select_genes <- c("ENSMUST00000025218", "ENSMUST00000025356", "ENSMUST00000027144") # for paper v2
 } else if (tissue == "UHR") {
-    select_genes <- c("ENST00000380680", "ENST00000604000", "ENST00000426077")
+    #select_genes <- c("ENST00000380680", "ENST00000604000", "ENST00000426077") # old for v1
+    select_genes <- c("ENST00000269593", "ENST00000604000", "ENST00000307630") #choice for v2
 } else if (tissue == "UHR_degraded") {
     select_genes <- c("ENST00000053468", "ENST00000253063", "ENST00000272233")
 } else {
