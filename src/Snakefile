@@ -21,6 +21,7 @@ genome_by_tissue = {
     "testis": genomes['GRCm38'],
     "UHR": genomes['GRCh38'],
     "UHR_degraded": genomes['GRCh38'],
+    "HBRR": genomes['GRCh38'],
     "human_PBMCs": genomes['GRCh38'],
     "human_bone": genomes['GRCh38'],
     "mouse_muscle": genomes['GRCm38'],
@@ -96,6 +97,7 @@ rule all:
         "results/alpine_fit_plots/liver/",
         "results/alpine_fit_plots/UHR_degraded/",
         "results/alpine_fit_plots/UHR/",
+        "results/alpine_fit_plots/HBRR/",
         "results/alpine_fit_plots/mouse_muscle/",
         "results/hexamer_correlation/liver.hexamer_correlations.txt",
         "results/transcript_coverage_plots/human_PBMCs/",
@@ -142,6 +144,8 @@ rule download_srx:
         sif = "images/sratools.sif",
     output:
         temp(directory("data/{sample_id}/SRR/"))
+    retries:
+        2
     resources:
       ncbi_download = 1,
       mem_mb = 12_000,
