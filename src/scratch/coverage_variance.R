@@ -5,98 +5,137 @@ library(stringr)
 library(tibble)
 
 # The below function is coded by Claude Opus 4.6
-#' Grouped Shapley (LMG) for factorial ANOVA with a stratification variable.
+# SEE ALSO: https://link.springer.com/article/10.1007/BF01253782
+#' Hierarchical Shapley for factorial ANOVA.
 #'
-#' Players are the factors listed on the RHS of `formula` plus `group`.
-#' For a subset S of players, the model includes all interactions among
-#' the factors in S. When `group` is in S, we use the stratification trick
-#' (fit within each group level, sum SS_reg) to avoid a giant design matrix.
+#' Computes Shapley-style importance for factors with a permission structure
+#' (some factors must "arrive" before others) and an optional stratification
+#' variable to avoid fitting huge models.
 #'
-#' @param data   Data frame
-#' @param formula  Formula like y ~ U * V * W (just the non-group factors)
-#' @param group  Name of the grouping variable (string)
-#' @return List with shapley values, R² of full model, per-subset R²
-grouped_shapley <- function(data, formula, group) {
-  resp <- all.vars(formula)[1]
-  factors <- all.vars(formula)[-1]
+#' @param data       Data frame.
+#' @param resp       Name of response variable (string).
+#' @param players    Character vector of factor names (the Shapley players).
+#' @param prereqs    Named list specifying permission structure. Each entry
+#'                   maps a player to the players that must precede it.
+#'                   E.g. list(sample = c("batch")) means sample can only
+#'                   arrive after batch. Players not listed have no prereqs.
+#' @param strat      Optional: name of the stratification variable (string).
+#'                   Must also be one of the players. Models containing this
+#'                   player are fit within each level and SS summed, avoiding
+#'                   a giant design matrix.
+#' @param model_for_subset  Function(player_names, data, resp) -> SS_reg.
+#'                   If NULL, default builds full factorial among the factors.
+#'                   Override for custom model structures.
+#' @return List with shapley values, r2_full, and diagnostics.
+hierarchical_shapley <- function(data, resp, players, prereqs = list(),
+                                 strat = NULL) {
 
-  # Players: factors + group. Index group as last player.
-  players <- c(factors, group)
   p <- length(players)
-  gi <- p  # group index
+  stopifnot(p <= 8)  # sanity: 8! = 40320 permutations
 
-  grp_data <- split(data, data[[group]])
-
-  # SS_total: within-group (this is what stratified models explain)
-  # Plus between-group (what group main effect explains)
-  grand_mean <- mean(data[[resp]])
-  ss_total <- sum((data[[resp]] - grand_mean)^2)
-  ss_within <- sum(sapply(grp_data, function(d) sum((d[[resp]] - mean(d[[resp]]))^2)))
-  ss_between <- ss_total - ss_within
-
-  # Build interaction formula from a set of factor names
-  make_formula <- function(fnames) {
-    if (length(fnames) == 0) return(NULL)
-    # Full factorial among fnames
-    reformulate(paste(fnames, collapse = " * "), resp)
+  # --- Permission structure: enumerate admissible orderings ---
+  # An ordering is admissible if for every player, all its prereqs appear earlier.
+  all_perms <- function(n) {
+    if (n == 1) return(matrix(1, 1, 1))
+    prev <- all_perms(n - 1)
+    do.call(rbind, lapply(1:n, function(pos) {
+      cbind(
+        prev[,seq_len(pos-1),drop=FALSE],
+        n,
+        prev[,seq_len(ncol(prev)-pos+1) + pos -1, drop=FALSE]
+      )
+    }))
   }
 
-  # Compute SS_reg for a subset of players (given as indices into `players`)
-  compute_ss_reg <- function(idx) {
-    if (length(idx) == 0) return(0)
+  perms <- all_perms(p)
 
-    has_group <- gi %in% idx
-    facs <- players[setdiff(idx, gi)]  # non-group factors in this subset
+  # Filter to admissible orderings
+  is_admissible <- function(perm) {
+    pos_of <- setNames(seq_along(perm), players[perm])
+    for (pl in names(prereqs)) {
+      for (pr in prereqs[[pl]]) {
+        if (pos_of[pl] <= pos_of[pr]) return(FALSE)
+      }
+    }
+    TRUE
+  }
+  admissible <- which(apply(perms, 1, is_admissible))
+  perms <- perms[admissible, , drop = FALSE]
+  n_perms <- nrow(perms)
+  cat(sprintf("  %d / %d orderings admissible\n", n_perms, factorial(p)))
 
-    if (has_group && length(facs) == 0) {
-      # Only group: SS_reg = SS_between
-      return(ss_between)
+  # --- Precompute R²(S) for all needed subsets ---
+  # With permission structure, not all subsets appear in admissible orderings.
+  # But with <=8 players, just precompute all 2^p - 1 subsets.
+
+  grand_mean <- mean(data[[resp]])
+  ss_total <- sum((data[[resp]] - grand_mean)^2)
+
+  # Stratification setup
+  if (!is.null(strat)) {
+    stopifnot(strat %in% players)
+    strat_data <- split(data, data[[strat]])
+    ss_between <- ss_total - sum(sapply(strat_data, function(d)
+      sum((d[[resp]] - mean(d[[resp]]))^2)))
+  }
+
+  # For a subset S of players, determine the effective factors in the model.
+  # If strat is in S, all other players in S are used as factorial terms
+  # fit within each stratum. If strat is not in S, fit on pooled data.
+  compute_r2 <- function(pnames) {
+    if (length(pnames) == 0) return(0)
+
+    has_strat <- !is.null(strat) && (strat %in% pnames)
+    model_factors <- setdiff(pnames, strat)
+
+    if (has_strat && length(model_factors) == 0) {
+      # Strat only: R² = SS_between / SS_total
+      return(ss_between / ss_total)
     }
 
-    if (has_group) {
-      # Stratified: fit y ~ facs (full factorial) within each group
-      f <- make_formula(facs)
-      ss_reg_within <- sum(sapply(grp_data, function(d) {
+    f <- reformulate(paste(model_factors, collapse = " * "), resp)
+
+    if (has_strat) {
+      ss_reg_within <- sum(sapply(strat_data, function(d) {
         fit <- lm(f, data = d)
         sum((fitted(fit) - mean(d[[resp]]))^2)
       }))
-      # Group also explains between-group variance
-      return(ss_between + ss_reg_within)
+      return((ss_between + ss_reg_within) / ss_total)
     }
 
-    # No group: fit on pooled data
-    f <- make_formula(facs)
+    # No strat: pooled fit
     fit <- lm(f, data = data)
-    sum((fitted(fit) - grand_mean)^2)
+    sum((fitted(fit) - grand_mean)^2) / ss_total
   }
 
-  # Enumerate all non-empty subsets, compute R²
-  subsets <- unlist(lapply(1:p, function(k) combn(p, k, simplify = FALSE)), recursive = FALSE)
-  ss_reg_vals <- setNames(
-    sapply(subsets, compute_ss_reg),
-    sapply(subsets, function(s) paste(sort(s), collapse = ","))
-  )
-  r2_vals <- ss_reg_vals / ss_total
-
-  # Shapley values
-  lookup <- function(s) if (length(s) == 0) 0 else r2_vals[paste(sort(s), collapse = ",")]
-
-  shapley <- setNames(numeric(p), players)
-  for (j in 1:p) {
-    others <- setdiff(1:p, j)
-    val <- 0
-    for (k in 0:length(others)) {
-      S_list <- if (k == 0) list(integer(0)) else combn(others, k, simplify = FALSE)
-      w <- 1 / (choose(p - 1, k) * p)
-      for (S in S_list) val <- val + w * (lookup(c(S, j)) - lookup(S))
+  # Make a lookup cache
+  r2_cache <- new.env(hash = TRUE, parent = emptyenv())
+  lookup <- function(idx) {
+    if (length(idx) == 0) return(0)
+    key <- paste(sort(idx), collapse = ",")
+    if (is.null(r2_cache[[key]])) {
+        r2_cache[[key]] <- compute_r2(players[idx])
     }
-    shapley[j] <- val
+    r2_cache[[key]]
+  }
+
+  # --- Shapley values via averaging over admissible orderings ---
+  shapley <- setNames(numeric(p), players)
+  for (r in 1:n_perms) {
+    perm <- perms[r, ]
+    for (pos in 1:p) {
+      j <- perm[pos]
+      before <- if (pos == 1) integer(0) else perm[1:(pos-1)]
+      marginal <- lookup(c(before, j)) - lookup(before)
+      shapley[players[j]] <- shapley[players[j]] + marginal / n_perms
+    }
   }
 
   list(
     shapley = shapley,
     r2_full = unname(lookup(1:p)),
-    r2_subsets = r2_vals
+    n_admissible = n_perms,
+    r2_subsets = r2_cache %>% as.list()
   )
 }
 
@@ -116,7 +155,17 @@ cov_downsampled <- cov %>%
     )
 
 # Shapley values
-res <- grouped_shapley(cov_downsampled, cov_normalized ~ study * sample, "pos_gene")
+res <- hierarchical_shapley(
+    cov_downsampled,
+    "cov_normalized",
+    c("study", "sample", "pos_gene"),
+    strat = "pos_gene",
+    prereqs = list(
+        study = c("pos_gene"),
+        sample = c("study", "pos_gene"),
+        pos_gene = c()
+    )
+)
 tibble(variable = names(res$shapley), shapley_value=res$shapley) %>% write_tsv("results/scratch/coverage.GEO.shapley_values.txt")
 
 
@@ -124,13 +173,13 @@ tibble(variable = names(res$shapley), shapley_value=res$shapley) %>% write_tsv("
 cov <- read_tsv("results/transcript_coverage/UHR.transcript_coverage.txt.gz")
 sample_info <- read_tsv("results/UHR.sample_info.txt") %>%
     mutate(
-        library_prep_batch = case_when(
+        sequencing_batch = case_when(
             library_id %in% c(1,2,3,4) ~ str_split_i(study, "_", 2),
             ID == "SRX302574" ~ "CNL",
             ID == "SRX302194" ~ "BGI",
             ID == "SRX302938" ~ "MAY",
         ),
-        sequencing_batch = str_split_i(study, "_", 2),
+        library_prep_batch = str_split_i(study, "_", 2),
     )
 
 cov_downsampled <- cov %>%
@@ -144,20 +193,34 @@ cov_downsampled <- cov %>%
         by = "sample",
     )
 
-res <- grouped_shapley(cov_downsampled, cov_normalized ~ library_prep_batch + sequencing_batch + sample, "pos_gene")
-tibble(variable = names(res$shapley), shapley_value=res$shapley) %>% write_tsv("results/scratch/coverage.UHR")
+res <- hierarchical_shapley(
+    cov_downsampled,
+    "cov_normalized",
+    c("library_prep_batch", "sequencing_batch", "sample", "pos_gene"),
+    strat = "pos_gene",
+    prereqs = list(
+        sample = c("library_prep_batch", "sequencing_batch"),
+        library_prep_batch = c("pos_gene"),
+        sequencing_batch = c("pos_gene"),
+        pos_gene = c()
+    )
+)
+tibble(variable = names(res$shapley), shapley_value=res$shapley) %>% write_tsv("results/scratch/coverage.UHR.shapley_values.txt")
 
 ## SEQC A + B, UHR + HBRR comparison
+cov1 <- read_tsv("results/transcript_coverage/UHR.transcript_coverage.txt.gz")
+cov2 <- read_tsv("results/transcript_coverage/HBRR.transcript_coverage.txt.gz")
+in_both <- intersect(cov1$gene %>% unique(), cov2$gene %>% unique())
 cov <- bind_rows(
-    read_tsv("results/transcript_coverage/UHR.transcript_coverage.txt.gz"),
-    read_tsv("results/transcript_coverage/HBRR.transcript_coverage.txt.gz"),
+    cov1 %>% filter(gene %in% in_both),
+    cov2 %>% filter(gene %in% in_both),
 )
 sample_info <- bind_rows(
         read_tsv("results/UHR.sample_info.txt"),
         read_tsv("results/HBRR.sample_info.txt"),
     )%>%
     mutate(
-        library_prep_batch = case_when(
+        sequencing_batch = case_when(
             ID == "SRX302574" ~ "CNL",
             ID == "SRX302194" ~ "BGI",
             ID == "SRX302938" ~ "MAY",
@@ -166,7 +229,7 @@ sample_info <- bind_rows(
             ID == 'SRX302651' ~ "CNL",
             TRUE ~ str_split_i(study, "_", 2),
         ),
-        sequencing_batch = str_split_i(study, "_", 2),
+        library_prep_batch = str_split_i(study, "_", 2),
     )
 
 cov_downsampled <- cov %>%
@@ -174,47 +237,23 @@ cov_downsampled <- cov %>%
     mutate( mean_gene_cov = mean(cov) ) %>%
     filter( pos %% 100 == 50 ) %>%
     mutate( cov_normalized = cov / mean_gene_cov) %>%
+    mutate( pos_gene = paste0(gene, pos)) %>%
     left_join(
-        sample_info %>% select(sample = ID, study, library_prep_batch, sequencing_batch),
+        sample_info %>% select(sample = ID, study, library_prep_batch, sequencing_batch, tissue),
         by = "sample",
     )
 
-# Position-wise fit
-# These are done base-to-base since we want to account for positional variation
-# but the full model is slow to run if we include a separate term for each base
-# So instead we run one lm() for each base but explicitly subtract out the grand mean
-# and add a dummy 'position' varaible that (since intercept is not included)
-# accounts for the difference from the grand mean, thereby measuring variance of
-# position.
-grand_mean <- cov_downsampled$cov_normalized %>% mean()
-models = list(
-    base = cov_normalized - grand_mean ~ 0,
-    position = cov_normalized - grand_mean ~ 1,
-    library_prep = cov_normalized - grand_mean ~ library_prep_batch,
-    sequencing_batch = cov_normalized - grand_mean ~ library_prep_batch + sequencing_batch,
-    tissue = cov_normalized - grand_mean ~ library_prep_batch + sequencing_batch + tissue,
-    tech_rep = cov_normalized - grand_mean ~ sample
-)
-model_fit <- function(data, keys) {
-    fits <- lapply(models, function(model) { lm(model, data) })
-    names(fits) <- NULL
-    aov <- do.call(anova, fits)
-    rownames(aov) <- names(models)
-    tibble(
-        gene_id = keys$gene,
-        pos = keys$pos,
-        variable = rownames(aov),
-        sum_sq = aov$`Sum of Sq`,
+res <- hierarchical_shapley(
+    cov_downsampled,
+    "cov_normalized",
+    c("library_prep_batch", "sequencing_batch", "sample", "tissue", "pos_gene"),
+    strat = "pos_gene",
+    prereqs = list(
+        sample = c("library_prep_batch", "sequencing_batch", 'tissue'),
+        library_prep_batch = c("pos_gene"),
+        sequencing_batch = c("pos_gene"),
+        tissue = c("pos_gene"),
+        pos_gene = c()
     )
-}
-squared_sums <- cov_downsampled %>% group_by(gene, pos) %>% group_map(model_fit) %>% bind_rows()
-
-overall <- squared_sums %>%
-    filter(variable != 'base') %>%
-    group_by(variable) %>%
-    summarize(sum_sq = sum(sum_sq)) %>%
-    mutate(pct_variance = 100*sum_sq / sum(sum_sq)) %>%
-    arrange(factor(variable, levels=names(models)))
-
-
-write_tsv(overall, "results/scratch/coverage.UHR_HBRR.percent_variance_explained.txt")
+)
+tibble(variable = names(res$shapley), shapley_value=res$shapley) %>% write_tsv("results/scratch/coverage.UHR_HBRR.shapley_values.txt")

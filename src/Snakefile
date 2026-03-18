@@ -104,6 +104,7 @@ rule all:
         "results/transcript_coverage/smart_seq.transcript_coverage.txt.gz",
         "results/transcript_coverage/UHR.transcript_coverage.txt.gz",
         "results/transcript_coverage/testis.transcript_coverage.txt.gz",
+        "results/transcript_coverage/HBRR.transcript_coverage.txt.gz",
         "results/coverage_type_comparison/liver/",
         expand("results/{tissue}/unannotated_splicing.txt", tissue = ["liver", "UHR", "UHR_degraded", "mouse_muscle"]),
         "results/liver/exon_effect/",
