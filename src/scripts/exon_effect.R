@@ -221,7 +221,9 @@ ggsave(paste0(outdir, '/exon_effect.png'))
 
 # Simpler summary
 # Take the permutation p-value of each gene-sample and plot those
+bad_tx <- (data |> filter(is.na(sum_sq)))$tx_id |> unique() # these have only one exon
 perm_p_values <- data |>
+    filter(!(tx_id %in% bad_tx)) |>
     group_by(sample, tx_id) |>
     summarize(
         perm_p = (sum(sum_sq > orig_sum_sq) + 1) / (length(sum_sq)+1),
