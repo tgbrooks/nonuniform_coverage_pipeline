@@ -14,9 +14,7 @@ sample_info <- bind_rows(
     read_tsv(UHR_sample_info_file) %>% mutate(source = "UHR")
     )%>%
     mutate(site = str_split_i(study, "_", 2)) %>%
-    mutate(library_id = as.factor(library_id),
-           sample_name = paste(source, library_id)
-        )
+    mutate(library_id = as.factor(library_id))
 
 sample_ids <- sample_info$ID
 cov_table <- bind_rows(
@@ -134,7 +132,7 @@ ggplot(
         scales = "free",
     ) +
     geom_path(
-        aes(color = source, group=sample_name),
+        aes(color = source, group=sample),
     ) +
     # the exon annotation layer
     geom_rect(
