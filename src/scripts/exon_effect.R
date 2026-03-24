@@ -120,7 +120,8 @@ for (tx_id in high_exp_genes$transcript_id) {
 exon_info <- bind_rows(temp) |>
     group_by(tx_id) |> 
     mutate(exon_number = row_number()) |>
-    ungroup()
+    ungroup() |>
+    mutate(len = exon_end - exon_start + 1)
 
 compute_exon_lm <- function(exon_info) {
     # Compute linear model `cov ~ exon` for each transcript and sample
@@ -171,21 +172,23 @@ lm_res <- compute_exon_lm(exon_info)
 temp <- list()
 for (i in seq(100)) {
     # Permute just the CDS exons, keeping the UTRs the same
-    perm_exon_info <- exon_info |>
-        filter(type != "cds") |>
-        mutate(len = exon_end - exon_start + 1) |>
+    perm_exon_info <- bind_rows(
+            exon_info |>
+            filter(type == "cds") |>
+            group_by(tx_id) |>
+            mutate(
+                len = sample(len, length(len)),
+            ) |>
+            ungroup(),
+            exon_info |> filter(type == "utr")
+        ) |>
         group_by(tx_id) |>
+        arrange(tx_id, exon_number) |>
         mutate(
-            new_len = sample(len, length(len)),
+            exon_start = c(1, cumsum(len)) |> head(-1),
+            exon_end = cumsum(len)
         ) |>
-        mutate(
-            exon_start = c(1, cumsum(new_len)) |> head(-1),
-            exon_end = cumsum(new_len)
-        ) |>
-        bind_rows(
-            exon_info |> filter(type == "cds")
-        ) |>
-        arrange(tx_id, exon_number)
+        ungroup()
     lm_res_ <- compute_exon_lm(perm_exon_info)
     temp[[length(temp) + 1]] <- lm_res_ |>
         mutate(
