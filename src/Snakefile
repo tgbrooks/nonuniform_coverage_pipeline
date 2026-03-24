@@ -114,6 +114,7 @@ rule all:
         "results/all_coverage.parquet",
         "results/selected_genomic_sequences.txt",
         "results/liver/global_valley_scores.txt",
+        "results/testis/global_valley_scores.txt",
         "results/UHR_degraded/global_valley_scores.txt",
         "results/liver/coverage_distance.txt",
         "results/UHR/coverage_distance.txt",
