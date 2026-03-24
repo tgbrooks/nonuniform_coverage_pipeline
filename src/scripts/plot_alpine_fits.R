@@ -113,7 +113,7 @@ if (tissue == "liver") {
     #select_genes <- c("ENST00000380680", "ENST00000604000", "ENST00000426077") # old for v1
     select_genes <- c("ENST00000269593", "ENST00000604000", "ENST00000307630") #choice for v2
 } else if (tissue == "UHR_degraded") {
-    select_genes <- c("ENST00000053468", "ENST00000253063", "ENST00000272233")
+    select_genes <- c("ENST00000253063", "ENST00000272233", "ENST00000307630") #choice for v2
 } else {
     select_genes <- c()
 }
