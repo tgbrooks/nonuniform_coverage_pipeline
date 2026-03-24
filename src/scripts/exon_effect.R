@@ -170,7 +170,9 @@ lm_res <- compute_exon_lm(exon_info)
 # redo this with permuted exons
 temp <- list()
 for (i in seq(100)) {
+    # Permute just the CDS exons, keeping the UTRs the same
     perm_exon_info <- exon_info |>
+        filter(type != "cds") |>
         mutate(len = exon_end - exon_start + 1) |>
         group_by(tx_id) |>
         mutate(
@@ -179,7 +181,11 @@ for (i in seq(100)) {
         mutate(
             exon_start = c(1, cumsum(new_len)) |> head(-1),
             exon_end = cumsum(new_len)
-        )
+        ) |>
+        bind_rows(
+            exon_info |> filter(type == "cds")
+        ) |>
+        arrange(tx_id, exon_number)
     lm_res_ <- compute_exon_lm(perm_exon_info)
     temp[[length(temp) + 1]] <- lm_res_ |>
         mutate(
