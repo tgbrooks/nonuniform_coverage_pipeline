@@ -484,12 +484,26 @@ rule pcr_dupe_rate_coverage:
     shell:
         "./scripts/pcr_dupe_rate_coverage_plot.py --bam_file {input.bam} --chrom_lengths {input.chrom_lengths} --out_cov_file {output.coverage} --out_duped_file {output.duped_coverage} --out_dupe_rate_file {output.dupe_rate}"
 
-rule plot_pcr_dupe_rate_coverage:
+rule get_pcr_dupe_rate_coverage:
     input:
         coverage = expand("data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
         dupe_rate = expand("data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.pcr_dupe_rate_coverage.bed", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
         annotation = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+    output:
+        full_cov = "results/{tissue}/pcr_dupe_rate_coverage.by_samples.txt",
+        summed_cov = "results/{tissue}/pcr_dupe_rate_coverage.aggregated.txt",
+    params:
+      sample_ids = [s for s in sample_ids if 'UMI' in samples_by_id[s]],
+    resources:
+        mem_mb = 24_000
+    script:
+      "scripts/get_pcr_dupe_rate_coverage.py"
+
+
+rule plot_pcr_dupe_rate_coverage:
+    input:
+        summed_cov = "results/{tissue}/pcr_dupe_rate_coverage.aggregated.txt",
     output:
         outdir = directory("results/{tissue}/pcr_dupe_rate_coverage_plot/")
     params:
