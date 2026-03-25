@@ -52,6 +52,22 @@ ggplot(data, aes(x = study2, y = cov_corr, color = study2, shape = within)) +
     #ylim(0.7, 1.0)
 ggsave("results/scratch/UHR.coverage_distance.png", width=5, height=5)
 
+### SIMPLIFIED GLOBAL CORRELATION UHR - NO FACETS
+ggplot(data, aes(x = study2, y = cov_corr, color=within)) +
+    geom_jitter(
+        position=position_jitter(width=0.3, height=0),
+    ) +
+    ylim(c(0,1)) +
+    scale_color_manual(values = c("within"="black", "between"="light blue"), name = "Correlation\ntype") +
+    labs(
+         x = "Site",
+         y = "Coverage correlation"
+    ) +
+    guides(color = guide_legend(order = 2), shape = guide_legend(order = 1)) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    #ylim(0.7, 1.0)
+ggsave("results/scratch/UHR.simple.coverage_distance.png", width=3, height=3)
+
 
 cor <- read_tsv("results/liver/coverage_distance.txt")
 sample_info <- read_tsv("results/liver.sample_info.txt")
@@ -98,3 +114,19 @@ ggplot(data, aes(x = study2, y = cov_corr, color = study2, shape = within)) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
     #ylim(0.6, 1.0)
 ggsave("results/scratch/liver.coverage_distance.png", width=5, height=7)
+
+#### SIMPLIFIED COVERAGE CORRELATION LIVER
+ggplot(data, aes(x = study1, y = cov_corr, color=within)) +
+    geom_jitter(
+        position=position_jitter(width=0.2, height=0),
+    ) +
+    scale_color_manual(values = c("within"="black", "between"="light blue"), name = "Correlation\ntype") +
+    ylim(c(0,1))+
+    labs(
+         x = "Study",
+         y = "Coverage correlation"
+    ) +
+    guides(color = guide_legend(order = 2), shape = guide_legend(order = 1)) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    #ylim(0.6, 1.0)
+ggsave("results/scratch/liver.simple.coverage_distance.png", width=3, height=3)
