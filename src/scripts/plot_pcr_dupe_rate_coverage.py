@@ -7,29 +7,38 @@ import scipy.stats
 import matplotlib as mpl
 import matplotlib.pyplot as pyplot
 
-cycle_counts_by_id = {
-    "SRX3357955": 8,
-    "SRX3357956": 9,
-    "SRX3357957": 10,
-    "SRX3357958": 11,
-    "SRX3357959": 13,
-}
+tissue = snakemake.wildcards.tissue
 
-select_genes = [
-    "ENSMUSG00000000594",
-    "ENSMUSG00000007836",
-    "ENSMUSG00000032437",
-]
-
-outdir = pathlib.Path("results/testis/pcr_dupe_rate_coverage_plot/")
+outdir = pathlib.Path(f"results/{tissue}/pcr_dupe_rate_coverage_plot/")
 outdir.mkdir(exist_ok=True)
 
-data = pl.read_csv(
-    "results/testis/pcr_dupe_rate_coverage.aggregated.txt", separator="\t"
+sample_data = pl.read_csv(f"results/{tissue}.sample_info.txt", separator="\t").select(
+    "ID",
+    cycle_count="PCR_cycle_count",
 )
+cycle_counts_by_id = dict(zip(sample_data["ID"], sample_data["cycle_count"]))
+print(cycle_counts_by_id)
+
+
+data = pl.read_csv(
+    f"results/{tissue}/pcr_dupe_rate_coverage.aggregated.txt", separator="\t"
+).join(sample_data, left_on="sample_id", right_on="ID")
 sample_ids = sorted(data["sample_id"].unique())
 
-annotation_db = "data/Mus_musculus.GRCm38.102.gtf.sqlite"
+if tissue == "testis":
+    annotation_db = "data/Mus_musculus.GRCm38.102.gtf.sqlite"
+    select_genes = [
+        "ENSMUSG00000000594",
+        "ENSMUSG00000007836",
+        "ENSMUSG00000032437",
+    ]
+else:
+    select_genes = [
+        "ENSG00000198886",
+        "ENSG00000197629",
+        "ENSG00000179163",
+    ]
+    annotation_db = "data/GRCh38.ensemblv109.gtf.sqlite"
 with sqlite3.connect(annotation_db) as conn:
     # exons = pl.read_database("SELECT * FROM exon", conn)
     # tx2exon = pl.read_database("SELECT * FROM tx2exon", conn)
@@ -55,10 +64,9 @@ for format in ["norm", "raw"]:
         cov_ax = axes[0, i]
         dupe_ax = axes[1, i]
         all_cov_and_dupes = data.filter(gene_id=gene_id).with_columns(
-            norm_cov=pl.col("cov")
-            / pl.col("cov").mean().over(["sample_id", "cycle_count"]),
+            norm_cov=pl.col("cov") / pl.col("cov").mean().over(["sample_id"]),
             norm_dupe_rate=pl.col("dupe_rate")
-            / pl.col("dupe_rate").mean().over(["sample_id", "cycle_count"]),
+            / pl.col("dupe_rate").mean().over(["sample_id"]),
         )
 
         for (cycle_count,), cov_and_dupe in all_cov_and_dupes.group_by("cycle_count"):

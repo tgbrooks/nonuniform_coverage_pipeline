@@ -3,15 +3,6 @@ import sqlite3
 import numpy as np
 import polars as pl
 
-cycle_counts_by_id = {
-    "SRX3357955": 8,
-    "SRX3357956": 9,
-    "SRX3357957": 10,
-    "SRX3357958": 11,
-    "SRX3357959": 13,
-}
-
-
 sample_ids = sorted(snakemake.params.sample_ids)
 
 dupe_rate_files = snakemake.input.dupe_rate
@@ -52,45 +43,48 @@ with sqlite3.connect(annotation_db) as conn:
 # compile the list of transcripts we'll plot
 transcripts_file = snakemake.input.transcripts
 ## list in all the mitochondrial transcripts
-mt_genes = gene.filter(pl.col("gene_name").str.starts_with("mt-"))["gene_id"]
-mt_tx = tx.filter(pl.col("gene_id").is_in(mt_genes))
-transcripts = pl.concat(
-    (
-        # Hand-picked genes
-        pl.DataFrame(
-            {
-                "gene_id": [
-                    "ENSMUSG00000064339",
-                    "ENSMUSG00000032554",
-                    "ENSMUSG00000002985",
-                    "ENSMUSG00000072849",
-                    "ENSMUSG00000022868",
-                    "ENSMUSG00000028001",
-                    "ENSMUSG00000064337",
-                    "ENSMUSG00000064370",
-                    "ENSMUSG00000064345",
-                ],
-                "transcript_id": [
-                    "ENSMUST00000082390",
-                    "ENSMUST00000112645",
-                    "ENSMUST00000174064",
-                    "ENSMUST00000085054",
-                    "ENSMUST00000023583",
-                    "ENSMUST00000166581",
-                    "ENSMUST00000082388",
-                    "ENSMUST00000082421",
-                    "ENSMUST00000082396",
-                ],
-            }
-        ),
-        # mitochondrial transcripts
-        mt_tx.select("gene_id", pl.col("tx_id").alias("transcript_id")),
-        # Our standard set of 100 single-isoform genes
-        pl.read_csv(transcripts_file, separator="\t").select(
-            "gene_id", "transcript_id"
-        ),
-    )
-).filter(pl.col("gene_id").is_first_distinct())
+# mt_genes = gene.filter(pl.col("gene_name").str.starts_with("mt-"))["gene_id"]
+# mt_tx = tx.filter(pl.col("gene_id").is_in(mt_genes))
+# transcripts = pl.concat(
+#    (
+#        # Hand-picked genes
+#        pl.DataFrame(
+#            {
+#                "gene_id": [
+#                    "ENSMUSG00000064339",
+#                    "ENSMUSG00000032554",
+#                    "ENSMUSG00000002985",
+#                    "ENSMUSG00000072849",
+#                    "ENSMUSG00000022868",
+#                    "ENSMUSG00000028001",
+#                    "ENSMUSG00000064337",
+#                    "ENSMUSG00000064370",
+#                    "ENSMUSG00000064345",
+#                ],
+#                "transcript_id": [
+#                    "ENSMUST00000082390",
+#                    "ENSMUST00000112645",
+#                    "ENSMUST00000174064",
+#                    "ENSMUST00000085054",
+#                    "ENSMUST00000023583",
+#                    "ENSMUST00000166581",
+#                    "ENSMUST00000082388",
+#                    "ENSMUST00000082421",
+#                    "ENSMUST00000082396",
+#                ],
+#            }
+#        ),
+#        # mitochondrial transcripts
+#        mt_tx.select("gene_id", pl.col("tx_id").alias("transcript_id")),
+#        # Our standard set of 100 single-isoform genes
+#        pl.read_csv(transcripts_file, separator="\t").select(
+#            "gene_id", "transcript_id"
+#        ),
+#    )
+# ).filter(pl.col("gene_id").is_first_distinct())
+transcripts = pl.read_csv(transcripts_file, separator="\t").select(
+    "gene_id", "transcript_id"
+)
 
 
 def gene_to_exon_pos(gene_id):
@@ -203,7 +197,6 @@ for sample_id in sample_ids:
             get_cov_and_dupe(gene_id, all_coverage, all_dupe_rate).with_columns(
                 sample_id=pl.lit(sample_id),
                 gene_id=pl.lit(gene_id),
-                cycle_count=pl.lit(cycle_counts_by_id[sample_id]),
             )
         )
 
@@ -212,7 +205,7 @@ data.write_csv(snakemake.output.full_cov, separator="\t")
 
 summed_data = (
     # No actual summing for this dataset since only one library per sample
-    data.group_by("cycle_count", "sample_id", "gene_id", "transcript_id", "pos", "loc")
+    data.group_by("sample_id", "gene_id", "transcript_id", "pos", "loc")
     .agg(
         cov=pl.col("cov").sum(),
         # combine dupe rates across the different samples, weighted sum according to the depth of coverage

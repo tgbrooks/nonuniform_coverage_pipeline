@@ -14,8 +14,11 @@ parser.add_argument("--chrom_lengths", help="File containing two tab-separated c
 parser.add_argument("--out_cov_file", help="File to output deduped coverage as bed format to")
 parser.add_argument("--out_duped_file", help="File to output coverage as bed format to of just number of UMI groups with at least 2 copies")
 parser.add_argument("--out_dupe_rate_file", help="File to output dupe rate as bed format to")
+parser.add_argument("--paired", help="Whether reads are paired ('True' or 'False')", type=str)
 
 args = parser.parse_args()
+
+paired = {"True": True, "False": False}[args.paired]
 
 START = 0
 END = 1
@@ -104,12 +107,15 @@ with pysam.AlignmentFile(bam_file, "rb") as bam:
         if read.is_secondary:
             continue
 
-        try:
-            other = partial_reads.pop(read.query_name)
-        except KeyError:
-            # We haven't processed the pair of the paired ends yet
-            partial_reads[read.query_name] = read 
-            continue
+        if paired:
+            try:
+                other = partial_reads.pop(read.query_name)
+            except KeyError:
+                # We haven't processed the pair of the paired ends yet
+                partial_reads[read.query_name] = read 
+                continue
+        else:
+            other = read # Unpaired: we just the same read twice
 
         # At this point, we have a read pair
         try:
@@ -137,7 +143,7 @@ with pysam.AlignmentFile(bam_file, "rb") as bam:
             pass
 
         if working_chrom != read.reference_name:
-            if working_chrom != None:
+            if working_chrom is not None:
                 finish_chromosome()
 
             # initialize the new chromosome
@@ -148,4 +154,5 @@ with pysam.AlignmentFile(bam_file, "rb") as bam:
             groups_encountered = set()
 
 finish_chromosome()
-print(f"{len(partial_reads)} reads had no matching pair")
+if paired:
+    print(f"{len(partial_reads)} reads had no matching pair")

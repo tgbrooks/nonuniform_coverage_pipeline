@@ -21,6 +21,7 @@ genome_by_tissue = {
     "testis": genomes['GRCm38'],
     "UHR": genomes['GRCh38'],
     "UHR_degraded": genomes['GRCh38'],
+    "UHR_PCR": genomes['GRCh38'],
     "HBRR": genomes['GRCh38'],
     "human_PBMCs": genomes['GRCh38'],
     "human_bone": genomes['GRCh38'],
@@ -111,6 +112,7 @@ rule all:
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
         "results/testis/pcr_dupe_rate_coverage_plot/",
+        "results/UHR_PCR/pcr_dupe_rate_coverage_plot/",
         "results/all_coverage.parquet",
         "results/selected_genomic_sequences.txt",
         "results/liver/global_valley_scores.txt",
@@ -168,7 +170,7 @@ rule extract_fastq:
         srr_dir = "data/{sample_id}/SRR/",
         sif = "images/sratools.sif",
     output:
-        temp(directory("data/{sample_id}/fastq"))
+        directory("data/{sample_id}/fastq")
     resources:
         mem_mb = 12_000,
     container:
@@ -238,6 +240,10 @@ checkpoint process_fastqs:
               R1_code = sample['UMI']['read1']
               shell(f"umi_tools extract --extract-method=string --bc-pattern {R1_code} -L {log} < {concat_R1} > {R1_out}")
               concat_R1.unlink()
+            elif 'UMI_in_read_id' in sample:
+                # extract UMIs from read ids
+                regex = repr(sample['UMI_in_read_id']['regex'])
+                shell(f"python extract_UMIs_from_read_id.py {regex} {concat_R1} {R1_out}")
             else:
               # Nothing to do
               concat_R1.rename(R1_out)
@@ -459,6 +465,7 @@ rule plot_alpine_rnafold_fits:
 
 rule pcr_copy_count_groups:
     input:
+        "data/{sample_id}/processed_fastqs/", # checkpoint used for is_paired()
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
     output:
@@ -467,11 +474,15 @@ rule pcr_copy_count_groups:
         dir = "data/{sample_id}/umi_groups/",
     resources:
         mem_mb = 48_000
-    shell:
-        "mkdir -p {params.dir} && umi_tools group --output-bam --unpaired-reads discard --chimeric-pairs discard --umi-separator=_ --paired --multimapping-detection-method=NH -I {input.bam}  -S {output.bam}"
+    run:
+        if is_paired(wildcards.sample_id):
+            shell("mkdir -p {params.dir} && umi_tools group --output-bam --unpaired-reads discard --chimeric-pairs discard --umi-separator=_ --paired --multimapping-detection-method=NH -I {input.bam}  -S {output.bam}")
+        else:
+            shell("mkdir -p {params.dir} && umi_tools group --output-bam --umi-separator=_ --method unique --multimapping-detection-method=NH -I {input.bam}  -S {output.bam}")
 
 rule pcr_dupe_rate_coverage:
     input:
+        "data/{sample_id}/processed_fastqs/", # checkpoint used for is_paired()
         bam = "data/{sample_id}/umi_groups/grouped.Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/umi_groups/grouped.Aligned.sortedByCoord.out.bam.bai",
         chrom_lengths = lambda wildcards: f"{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['dir']}/chrNameLength.txt"
@@ -479,15 +490,17 @@ rule pcr_dupe_rate_coverage:
         coverage = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed",
         duped_coverage = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.duped_coveage.bed",
         dupe_rate = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.pcr_dupe_rate_coverage.bed",
+    params:
+        paired = lambda wildcards: is_paired(wildcards.sample_id)
     resources:
         mem_mb = 12_000
     shell:
-        "./scripts/pcr_dupe_rate_coverage_plot.py --bam_file {input.bam} --chrom_lengths {input.chrom_lengths} --out_cov_file {output.coverage} --out_duped_file {output.duped_coverage} --out_dupe_rate_file {output.dupe_rate}"
+        "./scripts/pcr_dupe_rate_coverage_plot.py --bam_file {input.bam} --chrom_lengths {input.chrom_lengths} --out_cov_file {output.coverage} --out_duped_file {output.duped_coverage} --out_dupe_rate_file {output.dupe_rate} --paired {params.paired}"
 
 rule get_pcr_dupe_rate_coverage:
     input:
-        coverage = expand("data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
-        dupe_rate = expand("data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.pcr_dupe_rate_coverage.bed", sample_id = [s for s in sample_ids if 'UMI' in samples_by_id[s]]),
+        coverage = lambda wildcards: expand("data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed", sample_id = samples_by_tissue[wildcards.tissue]),
+        dupe_rate = lambda wildcards: expand("data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.pcr_dupe_rate_coverage.bed", sample_id = samples_by_tissue[wildcards.tissue]),
         annotation = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
     output:
@@ -504,6 +517,7 @@ rule get_pcr_dupe_rate_coverage:
 rule plot_pcr_dupe_rate_coverage:
     input:
         summed_cov = "results/{tissue}/pcr_dupe_rate_coverage.aggregated.txt",
+        sample_info = "results/{tissue}.sample_info.txt"
     output:
         outdir = directory("results/{tissue}/pcr_dupe_rate_coverage_plot/")
     params:
