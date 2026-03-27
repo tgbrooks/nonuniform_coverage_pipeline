@@ -32,24 +32,34 @@ if tissue == "testis":
         "ENSMUSG00000007836",
         "ENSMUSG00000032437",
     ]
+    color_by_cycle_count = {
+        cycles: mpl.colormaps["viridis"]((cycles - 8) / 5)
+        for cycles in [8, 9, 10, 11, 13]
+    }
 else:
+    annotation_db = "data/GRCh38.ensemblv109.gtf.sqlite"
     select_genes = [
         "ENSG00000198886",
         "ENSG00000197629",
         "ENSG00000179163",
     ]
-    annotation_db = "data/GRCh38.ensemblv109.gtf.sqlite"
+    color_by_cycle_count = {
+        cycles: mpl.colormaps["viridis"]((cycles - 6) / 14) for cycles in range(6, 21)
+    }
 with sqlite3.connect(annotation_db) as conn:
-    # exons = pl.read_database("SELECT * FROM exon", conn)
-    # tx2exon = pl.read_database("SELECT * FROM tx2exon", conn)
+    exons = pl.read_database("SELECT * FROM exon", conn)
+    tx2exon = pl.read_database("SELECT * FROM tx2exon", conn)
     gene = pl.read_database("SELECT * FROM gene", conn)
     tx = pl.read_database("SELECT * FROM tx", conn)
+gene_lengths = (
+    tx.join(tx2exon, "tx_id")
+    .join(exons, "exon_id")
+    .group_by("gene_id", "tx_id")
+    .agg(length=(pl.col("exon_seq_end") - pl.col("exon_seq_start") + 1).sum())
+)
 
 
 ###### PLOT SELECT GENES TOGETHER
-color_by_cycle_count = {
-    cycles: mpl.colormaps["viridis"]((cycles - 8) / 5) for cycles in [8, 9, 10, 11, 13]
-}
 handles = {}
 for format in ["norm", "raw"]:
     fig, axes = pyplot.subplots(
@@ -175,6 +185,11 @@ temp = []
 for (sample_id, transcript_id), transcript_data in data.group_by(
     ["sample_id", "transcript_id"]
 ):
+    gene_length = gene_lengths.filter(tx_id=transcript_id)["length"][0]
+    if gene_length < 400:
+        # We previously added in some mitochondrial genes that we don't want
+        # including tiny mt-tRNA genes
+        continue
     cov = transcript_data["cov"].to_numpy().astype(float)
     dupe_rate = transcript_data["dupe_rate"].to_numpy().astype(float)
     mask = np.array(transcript_data["mask"]).astype(bool)
@@ -234,16 +249,16 @@ results = pl.DataFrame(temp).melt(
 # )
 
 ### PLOT CORRELATION STATS
-fig, ax = pyplot.subplots(figsize=(3, 2), sharey=True, constrained_layout=True)
+fig, ax = pyplot.subplots(figsize=(4, 2), sharey=True, constrained_layout=True)
 for i, sample_id in enumerate(sample_ids):
     df = results.filter(
         pl.col("corr type") == "smoothed_diff_corr",
         sample_id=sample_id,
     )
-    ax.scatter(i + np.random.random(size=len(df["corr"])) * 0.6 - 0.3, df["corr"])
+    ax.scatter(i + np.random.random(size=len(df["corr"])) * 0.6 - 0.3, df["corr"], s=2)
 ax.set_xticks(range(len(sample_ids)))
 ax.set_xticklabels([cycle_counts_by_id[sample_id] for sample_id in sample_ids])
 ax.set_ylim(-1, 1)
-ax.set_ylabel("correlation")
+ax.set_ylabel("dupe rate - cov\ncorrelation")
 ax.set_xlabel("PCR cycle number")
 fig.savefig(outdir / "pcr_dupe_rate_correlation.png", dpi=300)

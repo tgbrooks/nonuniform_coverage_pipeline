@@ -5,33 +5,6 @@ import polars as pl
 
 sample_ids = sorted(snakemake.params.sample_ids)
 
-dupe_rate_files = snakemake.input.dupe_rate
-temp = []
-for dupe_rate_file, sample_id in zip(dupe_rate_files, sample_ids):
-    dupe_rate = pl.read_csv(
-        dupe_rate_file,
-        has_header=False,
-        new_columns=["chrom", "start", "end", "value"],
-        separator="\t",
-        dtypes=[pl.Utf8, pl.Int32, pl.Int32, pl.Float32],
-    ).with_columns(sample_id=pl.lit(sample_id))
-    temp.append(dupe_rate)
-dupe_rate = pl.concat(temp)
-
-cov_files = snakemake.input.coverage
-temp = []
-for cov_file, sample_id in zip(cov_files, sample_ids):
-    cov = pl.read_csv(
-        cov_file,
-        has_header=False,
-        new_columns=["chrom", "start", "end", "value"],
-        separator="\t",
-        dtypes=[pl.Utf8, pl.Int32, pl.Int32, pl.Int32],
-    ).with_columns(sample_id=pl.lit(sample_id))
-    temp.append(cov)
-cov = pl.concat(temp)
-
-
 annotation_db = snakemake.input.annotation
 with sqlite3.connect(annotation_db) as conn:
     exons = pl.read_database("SELECT * FROM exon", conn)
