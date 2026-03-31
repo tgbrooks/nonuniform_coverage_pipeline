@@ -170,6 +170,11 @@ getCoverage <- function(gene, bam.file, nonunique=FALSE, connect_reads=TRUE, pai
         strand_mode = 2
     } else {
         strand_mode = 0
+        if (all(strand(gene) == "+")) {
+            # NOTE: this fixes findCompatibleOverlaps when unstranded and gene is on the + strand
+            # If gene is on the - strand, then making gene "*" stranded instead causes problems. Very strange behavior
+            strand(gene) <- "*"
+        }
     }
 
     ga <- readGAlignments(bam.file, use.names=TRUE, param=param)
@@ -240,6 +245,14 @@ for (gene_name in names(ebt.fit)) {
         paired=paired,
         strandedness=strandedness
     )
+    cov_unstranded <- getCoverage(
+        gene=ebt.fit[[gene_name]],
+        bam.file=bam.file,
+        nonunique=FALSE,
+        connect_reads=TRUE,
+        paired=paired,
+        strandedness="unstranded"
+    )
     res[[gene_name]] <- tibble(
         sample = sample_id,
         gene = gene_name,
@@ -247,6 +260,7 @@ for (gene_name in names(ebt.fit)) {
         cov = decode(cov),
         cov_nonunique = decode(cov_nonuniq),
         cov_disconnected = decode(cov_disconnected),
+        cov_unstranded = decode(cov_unstranded),
     )
 }
 all <- bind_rows(res)
