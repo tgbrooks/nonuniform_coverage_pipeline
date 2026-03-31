@@ -2,7 +2,7 @@ library(tidyverse)
 library(stringr)
 
 
-# UHR degraded (RIN score association)
+ # UHR degraded (RIN score association)
 sample_info <- read_tsv("results/UHR_degraded.sample_info.txt", show_col_types=FALSE)
 gvs <- read_tsv("results/UHR_degraded/corrected_global_valley_score.txt", show_col_types=FALSE) |>
     left_join(sample_info, by = join_by(sample == ID))
@@ -20,6 +20,7 @@ rin_pvalue <- summary(lm(global_valley_score ~ rin_score, data=gvs))$coefficient
 message(paste("GVS ~ RIN score pvalue", rin_pvalue))
 
 # Testis (PCR cycle count)
+# NOTE: Ribo degraded, no need to 3' correct in global valley scores
 gvs <- read_tsv("results/testis/global_valley_scores.txt", show_col_types=FALSE)
 
 ggplot(gvs, aes(x=PCR_cycle_count, y=global_valley_score)) +
@@ -35,7 +36,7 @@ PCR_cycle_pvalue <- summary(lm(global_valley_score ~ PCR_cycle_count, data=gvs))
 message(paste("GVS ~ PCR cycle count pvalue", PCR_cycle_pvalue))
 
 
-# By gene length
+# By gene length in liver GEO dataset
 library(ensembldb)
 liver <- read_tsv("results/liver/global_valley_scores.txt", show_col_types=FALSE)
 # read in the transcript valley scores (by transcript)
@@ -64,7 +65,7 @@ txdf <- transcripts(txdb, return.type="DataFrame")
 mt_genes <- (txdf |> as_tibble() |> dplyr::filter(str_detect(tx_external_name, "mt-")))$transcript_id
 #tab <- table(txdf$gene_id)
 
-# By read depth
+# By read depth in liver GEO dataset
 temp <- list()
 for (sample_id in liver$sample) {
     temp[[length(temp)+1]] <- read_tsv(paste0("data/", sample_id, "/transcript_coverage.txt"), show_col_types=FALSE) |>
@@ -85,3 +86,14 @@ ggplot(tvs2, aes(x=cov, y=transcript_valley_score, color=transcript_length, shap
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
     geom_point()
 ggsave("results/scratch/liver.TVS_by_read_depth.png", width=7, height=7)
+
+# Compare GVS after downsampling one of the liver GEO dataset
+downsampled_tvs <- read_tsv("data/SRX16386864/downsampled_transcript_valley_score.txt") |>
+    dplyr::select(sample_id = sample, transcript_valley_score = transcript_valley_score, transcript_id = gene_id)
+tsv3 <- tvs2 |> dplyr::filter(sample_id == "SRX16386864") |>
+    left_join(downsampled_tvs, join_by(transcript_id == transcript_id, sample_id == sample_id), suffix=c("_original", "_downsampled"))
+
+ggplot(tsv3, aes(x=transcript_valley_score_original, y=transcript_valley_score_downsampled)) +
+    geom_point() +
+    labs(x = "Valley score (original)", y = "Valley score (downsampled)")
+ggsave("results/scratch/TVS.downsampled.png", width=4, height=4)
