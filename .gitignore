@@ -10,3 +10,7 @@ temp
 __pycache__
 Rplots.pdf
 .ncbi
+temp*
+pyproject.toml
+uv.lock
+.python-version
