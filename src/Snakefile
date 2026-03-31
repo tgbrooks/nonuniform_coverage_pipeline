@@ -121,7 +121,8 @@ rule all:
         "results/liver/coverage_distance.txt",
         "results/UHR/coverage_distance.txt",
         "results/UHR_degraded/corrected_coverage_table.txt",
-        "results/UHR_degraded/corrected_global_valley_score.txt",
+        expand("data/{sample_id}/corrected_global_valley_score.txt", sample_id=samples_by_tissue["UHR_degraded"]),
+        expand("data/{sample_id}/corrected_global_valley_score.txt", sample_id=samples_by_tissue["UHR_PCR"]),
         "data/SRX16386864/downsampled_global_valley_score.txt", # for assessing coverage depth and GVS
 
 rule generate_sif:
@@ -767,14 +768,9 @@ rule compute_coverage_distance:
 
 rule correct_coverage_for_3prime:
     input:
-        cov = lambda wildcards: [f"results/alpine_fits/{wildcards.tissue}/{sample_id}.coverage_table.txt"
-                    for sample_id in samples_by_tissue[wildcards.tissue]
-                        if can_alpine(sample_id)]
+        cov = "data/{sample_id}/transcript_coverage.txt"
     output:
-        corrected = "results/{tissue}/corrected_coverage_table.txt"
-    params:
-        sample_ids = lambda wildcards: [sample_id for sample_id in samples_by_tissue[wildcards.tissue]
-                            if can_alpine(sample_id)]
+        corrected = "data/{sample_id}/corrected_transcript_coverage.txt"
     container:
         "images/alpine.sif"
     resources:
@@ -784,9 +780,12 @@ rule correct_coverage_for_3prime:
 
 rule corrected_for_3prime_global_valley_score:
     input:
-        cov = "results/{tissue}/corrected_coverage_table.txt"
+        cov = lambda wildcards: "data/{sample_id}/corrected_transcript_coverage.txt"
     output:
-        gvs = "results/{tissue}/corrected_global_valley_score.txt"
+        gvs = "data/{sample_id}/corrected_global_valley_score.txt",
+        lvs = "data/{sample_id}/corrected_local_valley_score.txt",
+        smoothed_cov = "data/{sample_id}/corrected_smoothed_transcript_cov.txt",
+        tvs = "data/{sample_id}/corrected_transcript_valley_score.txt",
     container:
         "images/alpine.sif"
     script:
