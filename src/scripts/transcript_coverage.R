@@ -15,6 +15,7 @@ library(dplyr)
 #sample_id <- "SRX6902444"
 #paired <- FALSE
 #strandedness <- "reverse"
+#downsample <- 0.3
 
 ensembldb_sqlite <- snakemake@input$ensdb
 bam.file <- snakemake@input$bam
@@ -23,7 +24,9 @@ outfile <- snakemake@output$cov
 sample_id <- snakemake@wildcards$sample_id
 paired <- snakemake@params$paired
 strandedness <- snakemake@params$strandedness
+downsample <- snakemake@params$downsample
 
+set.seed(5) # for random downsampling of reads, if enabled
 
 txdb <- EnsDb(ensembldb_sqlite)
 txdf <- transcripts(txdb, return.type="DataFrame")
@@ -69,6 +72,7 @@ endRight <- function(x) {
         end(x)
     }
 }
+
 mapTxToGenome <- function(exons) {
     strand <- as.character(strand(exons)[1])
     stopifnot(all(exons$exon_rank == seq_along(exons)))
@@ -166,7 +170,6 @@ getCoverage <- function(gene, bam.file, nonunique=FALSE, connect_reads=TRUE, pai
         strand_mode = 2
     } else {
         strand_mode = 0
-        strand(gene) <- "*" # Necessary for findCompatibleOverlaps to function with unstranded reads
     }
 
     ga <- readGAlignments(bam.file, use.names=TRUE, param=param)
@@ -186,16 +189,24 @@ getCoverage <- function(gene, bam.file, nonunique=FALSE, connect_reads=TRUE, pai
     }
 
     # Check strandedness
-    gene_strand <- decode(strand(gene))[[1]] # use strand of first exon - all should be the same
-    strand_compatible <- gene_strand == strand(ga)
-    ga <- ga[strand_compatible]
+    if (strandedness != "unstranded") {
+        gene_strand <- decode(strand(gene))[[1]] # use strand of first exon - all should be the same
+        strand_compatible <- gene_strand == strand(ga)
+        ga <- ga[strand_compatible]
+    }
 
     ga <- GenomeInfoDb::keepSeqlevels(ga, as.character(seqnames(gene)[1]))
     fco <- GenomicAlignments::findCompatibleOverlaps(ga, GRangesList(gene))
-    reads <- gaToReadsOnTx(ga, GRangesList(gene), fco, connect_reads)
+    reads <- gaToReadsOnTx(ga, GRangesList(gene), fco, connect_reads)[[1]]
+
+    # Random downsampling (if enabled)
+    retained <- runif(length(reads)) > downsample
+    message("Started with ", length(reads), " reads")
+    reads <- reads[retained]
+    message("Downsampled to ", length(reads), " reads")
 
     l <- sum(width(gene))
-    frag.cov <- coverage(reads[[1]][start(reads[[1]]) != 1 & end(reads[[1]]) != l])
+    frag.cov <- coverage(reads[start(reads) != 1 & end(reads) != l])
 
     # add 0s out to the length of the gene if no reads go all the way
     c(frag.cov, rep(0, l-length(frag.cov)))
@@ -204,6 +215,7 @@ getCoverage <- function(gene, bam.file, nonunique=FALSE, connect_reads=TRUE, pai
 
 res <- list()
 for (gene_name in names(ebt.fit)) {
+    message("Stating ", gene_name)
     cov <- getCoverage(
         gene=ebt.fit[[gene_name]],
         bam.file=bam.file,

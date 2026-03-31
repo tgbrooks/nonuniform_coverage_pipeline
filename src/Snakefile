@@ -122,6 +122,7 @@ rule all:
         "results/UHR/coverage_distance.txt",
         "results/UHR_degraded/corrected_coverage_table.txt",
         "results/UHR_degraded/corrected_global_valley_score.txt",
+        "data/SRX16386864/downsampled_global_valley_score.txt", # for assessing coverage depth and GVS
 
 rule generate_sif:
     input:
@@ -601,6 +602,27 @@ rule transcript_coverage:
     params:
         paired = lambda wildcards: is_paired(wildcards.sample_id),
         strandedness = lambda wildcards: get_strandedness(wildcards.sample_id),
+        downsample = 0.0, # Don't drop any reads
+    container:
+        "images/alpine.sif"
+    script:
+        "scripts/transcript_coverage.R"
+
+rule dowsnampled_transcript_coverage:
+    input:
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['name']}.gtf.sqlite",
+        bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
+        bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
+        transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
+        fastq = "data/{sample_id}/processed_fastqs", # for the paired param
+    output:
+        cov = "data/{sample_id}/downsampled_transcript_coverage.txt"
+    resources:
+        mem_mb = 12_000,
+    params:
+        paired = lambda wildcards: is_paired(wildcards.sample_id),
+        strandedness = lambda wildcards: get_strandedness(wildcards.sample_id),
+        downsample = 0.3, # Do drop some reads!
     container:
         "images/alpine.sif"
     script:
@@ -680,13 +702,30 @@ rule aggregate_hexamer_correlation:
 
 rule compute_global_valley_score:
     input:
-        cov = lambda wildcards: f"results/alpine_fits/{samples_by_id[wildcards.sample_id]['tissue']}/{wildcards.sample_id}.coverage_table.txt"
+        cov = lambda wildcards: "data/{sample_id}/transcript_coverage.txt"
     output:
-        gvs = "data/{sample_id}/global_valley_score.txt"
+        gvs = "data/{sample_id}/global_valley_score.txt",
+        lvs = "data/{sample_id}/local_valley_score.txt",
+        smoothed_cov = "data/{sample_id}/smoothed_transcript_cov.txt",
+        tvs = "data/{sample_id}/transcript_valley_score.txt",
     container:
         "images/alpine.sif"
     script:
         "scripts/compute_global_valley_score.R"
+
+rule compute_global_valley_score_downsampled:
+    input:
+        cov = lambda wildcards: "data/{sample_id}/downsampled_transcript_coverage.txt"
+    output:
+        gvs = "data/{sample_id}/downsampled_global_valley_score.txt",
+        lvs = "data/{sample_id}/downsampled_local_valley_score.txt",
+        smoothed_cov = "data/{sample_id}/downsampled_smoothed_transcript_cov.txt",
+        tvs = "data/{sample_id}/downsampled_transcript_valley_score.txt",
+    container:
+        "images/alpine.sif"
+    script:
+        "scripts/compute_global_valley_score.R"
+
 
 rule aggregate_gvs:
     input:
