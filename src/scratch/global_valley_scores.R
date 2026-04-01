@@ -4,7 +4,11 @@ library(stringr)
 
  # UHR degraded (RIN score association)
 sample_info <- read_tsv("results/UHR_degraded.sample_info.txt", show_col_types=FALSE)
-gvs <- read_tsv("results/UHR_degraded/corrected_global_valley_score.txt", show_col_types=FALSE) |>
+temp <- list()
+for (sample_id in sample_info$ID) {
+    temp[[length(temp)+1]] <- read_tsv(paste0("data/", sample_id, "/corrected_global_valley_score.txt"), show_col_types=FALSE)
+}
+gvs <- bind_rows(temp) |>
     left_join(sample_info, by = join_by(sample == ID))
 
 ggplot(gvs, aes(x=rin_score, y=global_valley_score)) +
@@ -90,10 +94,10 @@ ggsave("results/scratch/liver.TVS_by_read_depth.png", width=7, height=7)
 # Compare GVS after downsampling one of the liver GEO dataset
 downsampled_tvs <- read_tsv("data/SRX16386864/downsampled_transcript_valley_score.txt") |>
     dplyr::select(sample_id = sample, transcript_valley_score = transcript_valley_score, transcript_id = gene_id)
-tsv3 <- tvs2 |> dplyr::filter(sample_id == "SRX16386864") |>
+tvs3 <- tvs2 |> dplyr::filter(sample_id == "SRX16386864") |>
     left_join(downsampled_tvs, join_by(transcript_id == transcript_id, sample_id == sample_id), suffix=c("_original", "_downsampled"))
 
-ggplot(tsv3, aes(x=transcript_valley_score_original, y=transcript_valley_score_downsampled)) +
+ggplot(tvs3, aes(x=transcript_valley_score_original, y=transcript_valley_score_downsampled)) +
     geom_point() +
     labs(x = "Valley score (original)", y = "Valley score (downsampled)")
 ggsave("results/scratch/TVS.downsampled.png", width=4, height=4)
