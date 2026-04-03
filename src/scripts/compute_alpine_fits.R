@@ -8,17 +8,19 @@ library(ggplot2)
 library(splines)
 
 # Values for testing
-#outdir <- c("results/alpine_fit_plots")
-#modelfiles <- c("data/SRX4080514/alpine.model.rda", "data/SRX4393368/alpine.model.rda", "data/SRX16386863/alpine.model.rda")
-#bam.files <- c("data/SRX4080514/bam/Aligned.sortedByCoord.out.bam", "data/SRX4393368/bam/Aligned.sortedByCoord.out.bam", "data/SRX16386863/bam/Aligned.sortedByCoord.out.bam")
-#ensembldb_sqlite <- "data/Mus_musculus.GRCm38.102.gtf.sqlite"
-#selected_transcripts_file <- "data/liver/high_expressed_single_isoform_genes.txt"
+outdir <- c("temp")
+modelfiles <- c("data/SRX16386864/alpine.modelhexamer_no_pos.rda")
+bam.files <- c("data/SRX16386864/bam/Aligned.sortedByCoord.out.bam")
+ensembldb_sqlite <- "data/Mus_musculus.GRCm38.102.gtf.sqlite"
+selected_transcripts_file <- "data/liver/high_expressed_single_isoform_genes.txt"
+BSgenome_name <- "BSgenome.Mmusculus.UCSC.mm10"
 
 ensembldb_sqlite <- snakemake@input$ensdb
 bam.files <- snakemake@input$bam
 modelfiles <- snakemake@input$models
 selected_transcripts_file <- snakemake@input$transcripts
 outfile <- snakemake@output$outfile
+BSgenome_name <- snakemake@params$BSgenome
 
 # Load the alpine models
 models <- lapply(
@@ -58,8 +60,8 @@ gene.names <- names(ebt.fit)
 names(gene.names) <- gene.names
 
 # Load the BSgenome for our species
-library(snakemake@params$BSgenome, character.only=TRUE)
-if (snakemake@params$BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
+library(BSgenome_name, character.only=TRUE)
+if (BSgenome_name == "BSgenome.Hsapiens.UCSC.hg38") {
     my_genome <- BSgenome.Hsapiens.UCSC.hg38
 } else {
     my_genome <- BSgenome.Mmusculus.UCSC.mm10
@@ -159,9 +161,9 @@ predictCoverage <- function(gene, all_fragtypes, bam.files, fitpar, genome, mode
       ## -- random hexamer priming bias with VLMM --
       vlmm.fivep <- fitpar[[sample_id]][["vlmm.fivep"]]
       vlmm.threep <- fitpar[[sample_id]][["vlmm.threep"]]
-      stopifnot(!is.null(vlmm.fivep))
-      stopifnot(!is.null(vlmm.threep))
-      fragtypes.temp <- alpine:::addVLMMBias(fragtypes.temp, vlmm.fivep, vlmm.threep)
+      if ((!is.null(vlmm.fivep)) && !is.null(vlmm.threep)) {
+        fragtypes.temp <- alpine:::addVLMMBias(fragtypes.temp, vlmm.fivep, vlmm.threep)
+      }
 
       # -- fit models --
       res[[sample_id]] <- list()
@@ -175,6 +177,9 @@ predictCoverage <- function(gene, all_fragtypes, bam.files, fitpar, genome, mode
       res[[sample_id]]$frag.cov <- frag.cov
       res[[sample_id]]$pred.cov <- list()
       for (modeltype in names(models)) {
+          if (models[[modeltype]]$formula == "count ~ 0 + 0") {
+              models[[modeltype]]$formula <- NULL
+          }
         # message("predicting model type: ",modeltype)
         log.lambda <- alpine:::getLogLambda(fragtypes.temp, models, modeltype, fitpar, sample_id)
         pred0 <- exp(log.lambda)

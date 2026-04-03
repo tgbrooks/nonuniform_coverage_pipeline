@@ -1,5 +1,7 @@
 options(error = function() traceback(10))
 
+model_type <- snakemake@wildcards$model_type
+
 # Load the BSgenome for our species
 library(snakemake@params$BSgenome, character.only=TRUE)
 if (snakemake@params$BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
@@ -63,12 +65,57 @@ for(gene in names(fragtypes)) {
 
 
 # Specify the models
-models <- list(
-  "all" = list(
-    formula = "count ~ ns(gc,knots=gc.knots,Boundary.knots=gc.bk) + ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk) + ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk):genelen  + GC40.80 + GC20.80 + gene",
-    offset=c("fraglen","vlmm")
-  )
-)
+if (model_type == "") {
+    # Full model
+    models <- list(
+        "all" = list(
+            formula = "count ~ ns(gc,knots=gc.knots,Boundary.knots=gc.bk) + ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk) + ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk):genelen  + GC40.80 + GC20.80 + gene",
+            offset=c("fraglen","vlmm")
+        )
+    )
+} else if (model_type == "hexamer") {
+    models <- list(
+        "all" = list(
+            formula = "count ~ ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk) + ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk):genelen + gene",
+            offset=c("fraglen","vlmm")
+        )
+    )
+} else if (model_type == "GC") {
+    models <- list(
+        "all" = list(
+            formula = "count ~ ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk) + ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk):genelen + gene",
+            offset=c("fraglen")
+        )
+    )
+} else if (model_type == "hexamer_no_pos") {
+    models <- list(
+        "all" = list(
+            formula = "count ~ 0 + gene",
+            offset=c("fraglen","vlmm")
+        )
+    )
+} else if (model_type == "pos_only") {
+    models <- list(
+        "all" = list(
+            formula = "count ~ ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk) + ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk):genelen + gene",
+            offset=c("fraglen")
+        )
+    )
+} else if (model_type == "pos_no_genelen") {
+    models <- list(
+        "all" = list(
+            formula = "count ~ ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk) + gene",
+            offset=c("fraglen")
+        )
+    )
+} else if (model_type == "baseline") {
+    models <- list(
+        "all" = list(
+            formula = "count ~ 0 + gene",
+            offset=c("fraglen")
+        )
+    )
+}
 
 # DEBUG
 #trace(fitBiasModels, at=c(18,4,8), browser)

@@ -111,6 +111,8 @@ rule all:
         "results/liver/exon_effect/",
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
+        #"results/alpine_fits.hexamer_only/liver/SRX16386864.coverage_table.txt", # one sample for hexamer-only
+        expand("results/alpine_fits{model_type}/liver/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX11694510","SRX16386864"]),
         "results/testis/pcr_dupe_rate_coverage_plot/",
         "results/UHR_PCR/pcr_dupe_rate_coverage_plot/",
         "results/all_coverage.parquet",
@@ -346,7 +348,7 @@ rule run_alpine:
         dummy = "data/{sample_id}/processed_fastqs",
         sif = "images/alpine.sif",
     output:
-        modelfile = "data/{sample_id}/alpine.model.rda",
+        modelfile = "data/{sample_id}/alpine.model{model_type}.rda",
     params:
         readlength =  lambda wildcards: get_readlen(wildcards.sample_id),
         BSgenome = lambda wildcards: genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['BSgenome'],
@@ -413,12 +415,12 @@ rule compare_alpine:
 rule compute_alpine_fits:
     input:
         bam = ["data/{sample_id}/bam/Aligned.sortedByCoord.out.bam"],
-        models = ["data/{sample_id}/alpine.model.rda"],
+        models = ["data/{sample_id}/alpine.model{model_type}.rda"],
         ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
         sif = "images/alpine.sif",
     output:
-        outfile = "results/alpine_fits/{tissue}/{sample_id}.coverage_table.txt",
+        outfile = "results/alpine_fits{model_type}/{tissue}/{sample_id}.coverage_table.txt",
     params:
         BSgenome = lambda wildcards: genome_by_tissue[wildcards.tissue]['BSgenome'],
     resources:
@@ -609,7 +611,7 @@ rule transcript_coverage:
     script:
         "scripts/transcript_coverage.R"
 
-rule dowsnampled_transcript_coverage:
+rule downsampled_transcript_coverage:
     input:
         ensdb = lambda wildcards: f"data/{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['name']}.gtf.sqlite",
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
