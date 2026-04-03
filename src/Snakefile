@@ -339,12 +339,26 @@ rule select_alpine_transcripts:
     script:
         "scripts/select_alpine_transcripts.py"
 
+rule select_training_transcripts:
+    input:
+        transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt"
+    output:
+        transcripts = "data/{tissue}/training_set_transcripts.txt",
+    params:
+        num_training = 80
+    run:
+        import numpy as np
+        import polars as pl
+        tx = pl.read_csv(input.transcripts, separator="\t")
+        rng = np.random.default_rng(5)
+        tx[rng.choice(tx.shape[0], params.num_training, replace=False)].write_csv(output.transcripts, separator="\t")
+
 rule run_alpine:
     input:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
         ensdb = lambda wildcards: f"data/{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['name']}.gtf.sqlite",
-        transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
+        transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/training_set_transcripts.txt",
         dummy = "data/{sample_id}/processed_fastqs",
         sif = "images/alpine.sif",
     output:
