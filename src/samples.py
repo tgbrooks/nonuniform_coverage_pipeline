@@ -1256,6 +1256,9 @@ samples = [
     # {'ID': 'SRX23922817', 'study': 'PRJNA1086933', 'tissue': 'UHR_PCR', 'PCR_cycle_count': 8, 'input_material_ng': 1000},
     # {'ID': 'SRX23922818', 'study': 'PRJNA1086933', 'tissue': 'UHR_PCR', 'PCR_cycle_count': 10, 'input_material_ng': 1000},
 
+    ###### IVT-SEQ #############
+    {'ID': 'SRX341390', 'study': 'GSE50445','tissue': 'IVT_seq'},
+
 ]
 
 for sample in samples:

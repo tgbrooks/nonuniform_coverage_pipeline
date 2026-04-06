@@ -15,6 +15,12 @@ genomes = {
         "BSgenome": "BSgenome.Hsapiens.UCSC.hg38",
         "name": "GRCh38.ensemblv109",
     },
+    "IVT_seq": {
+        "dir": "/project/itmatlab/index/STAR-2.7.10b_indexes/GRCh38.ensemblv109",
+        "gtf": "/project/itmatlab/index/STAR-3.7.10b_indexes/GRCh38.ensemblv109/Homo_sapiens.GRCh38.109.gtf",
+        "BSgenome": "BSgenome.Hsapiens.UCSC.hg38",
+        "name": "IVT_seq",
+    },
 }
 genome_by_tissue = {
     "liver": genomes['GRCm38'],
@@ -27,6 +33,7 @@ genome_by_tissue = {
     "human_bone": genomes['GRCh38'],
     "mouse_muscle": genomes['GRCm38'],
     "smart_seq": genomes['GRCm38'],
+    "IVT_seq": genomes['IVT_seq'],
 }
 gtf_by_name = {x['name']:x['gtf'] for x in genome_by_tissue.values()}
 
@@ -112,7 +119,7 @@ rule all:
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
         #"results/alpine_fits.hexamer_only/liver/SRX16386864.coverage_table.txt", # one sample for hexamer-only
-        expand("results/alpine_fits{model_type}/liver/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX11694510","SRX16386864"]),
+        expand("results/alpine_fits{model_type}/liver/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX341390", "SRX11694510","SRX16386864"]),
         "results/testis/pcr_dupe_rate_coverage_plot/",
         "results/UHR_PCR/pcr_dupe_rate_coverage_plot/",
         "results/all_coverage.parquet",
@@ -320,12 +327,20 @@ rule make_ensembldb:
         sif = "images/alpine.sif",
     output:
         sqlite = "data/{genome_name}.gtf.sqlite"
+    wildcard_constraints:
+        genome_name = "GRCh38.ensemblv109|Mus_musculus.GRCm38.102"
     resources:
         mem_mb = 12_000
     container:
         "images/alpine.sif"
     script:
         "scripts/make_ensembldb.R"
+
+rule make_IVT_seq_ensembldb:
+    output:
+        sqlite = "data/IVT_seq.gtf.sqlite"
+    script:
+        "scripts/IVT_seq_sqlite.py"
 
 rule select_alpine_transcripts:
     input:
@@ -345,7 +360,7 @@ rule select_training_transcripts:
     output:
         transcripts = "data/{tissue}/training_set_transcripts.txt",
     params:
-        num_training = 80
+        num_training = lambda wildcards: 80 if wildcards.tissue != "IVT_seq" else 32 
     run:
         import numpy as np
         import polars as pl
