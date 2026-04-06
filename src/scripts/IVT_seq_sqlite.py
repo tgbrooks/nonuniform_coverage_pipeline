@@ -30,6 +30,8 @@ with sqlite3.connect(ensdb) as conn:
     # tx = pl.read_database("select * from tx", conn)
     # tx2exon = pl.read_database("select * from tx2exon", conn)
     # exon = pl.read_database("select * from exon", conn)
+    chromosome = pl.read_database("select * from chromosome", conn)
+    metadata = pl.read_database("select * from metadata", conn)
 
 
 def chrom_name(chrom):
@@ -148,12 +150,20 @@ ivt_gene = annot.select(
     seq_strand="strand",
     seq_name="chrom",
     gene_biotype=pl.lit("protein_coding"),
+    entrezid=pl.lit(None),
+    gene_seq_start=pl.lit(None),
+    gene_seq_end=pl.lit(None),
+    seq_coord_system=pl.lit(None),
 ).unique()
 ivt_exon = annot.select("exon_id", exon_seq_start="start", exon_seq_end="end").unique()
 ivt_tx = annot.select(
     tx_id="transcript_id",
     gene_id="gene_id",
     tx_biotype=pl.lit("protein_coding"),
+    tx_seq_start=pl.lit(None),
+    tx_seq_end=pl.lit(None),
+    tx_cds_seq_start=pl.lit(None),
+    tx_cds_seq_end=pl.lit(None),
 ).unique()
 ivt_tx2exon = annot.select(
     tx_id="transcript_id", exon_id="exon_id", exon_idx="exon_number"
@@ -165,7 +175,7 @@ def write_to_sqlite(df, table_name, db_path, schema: dict | None = None):
     conn = sqlite3.connect(db_path)
     conn.execute(f"DROP TABLE IF EXISTS {table_name}")
     types = schema or {c: "TEXT" for c in df.columns}
-    cols = ", ".join(f"{c} {types[c]}" for c in df.columns)
+    cols = ", ".join(f"{c} {types.get(c, 'TEXT')}" for c in df.columns)
     conn.execute(f"CREATE TABLE {table_name} ({cols})")
     conn.executemany(
         f"INSERT INTO {table_name} VALUES ({','.join('?' * len(df.columns))})",
@@ -201,8 +211,20 @@ write_to_sqlite(
     out_db,
     schema=dict(tx_id="TEXT", exon_id="TEXT", exon_idx="INTEGER"),
 )
+write_to_sqlite(
+    chromosome,
+    "chromosome",
+    out_db,
+    schema=dict(seq_name="TEXT", seq_length="INTEGER", is_circular="INTEGER"),
+)
+write_to_sqlite(
+    metadata,
+    "metadata",
+    out_db,
+    schema=dict(name="TEXT", value="TEXT"),
+)
 
 
 # Clean up temp files
-chain_file_path.unlink()
-bed_file.unlink()
+# chain_file_path.unlink()
+# bed_file.unlink()
