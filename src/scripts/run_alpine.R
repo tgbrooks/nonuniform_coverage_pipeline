@@ -83,7 +83,7 @@ if (model_type == "") {
 } else if (model_type == "GC") {
     models <- list(
         "all" = list(
-            formula = "count ~ ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk) + ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk):genelen + gene",
+            formula = "count ~ ns(gc,knots=gc.knots,Boundary.knots=gc.bk) + ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk) + ns(relpos,knots=relpos.knots,Boundary.knots=relpos.bk):genelen  + GC40.80 + GC20.80 + gene",
             offset=c("fraglen")
         )
     )
