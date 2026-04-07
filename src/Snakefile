@@ -119,7 +119,9 @@ rule all:
         #"results/alpine_rnafold_fits/liver/",
         #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
         #"results/alpine_fits.hexamer_only/liver/SRX16386864.coverage_table.txt", # one sample for hexamer-only
-        expand("results/alpine_fits{model_type}/liver/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX341390", "SRX11694510","SRX16386864"]),
+        expand("results/alpine_fits{model_type}/liver/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX11694510","SRX16386864"]),
+        expand("results/alpine_fits{model_type}/IVT_seq/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX341390"]),
+        #"results/alpine_fits/IVT_seq/SRX341390.coverage_table.txt",
         "results/testis/pcr_dupe_rate_coverage_plot/",
         "results/UHR_PCR/pcr_dupe_rate_coverage_plot/",
         "results/all_coverage.parquet",
@@ -349,6 +351,8 @@ rule select_alpine_transcripts:
         junctions = lambda wildcards: expand("data/{sample_id}/bam/SJ.out.tab", sample_id=samples_by_tissue[wildcards.tissue]),
     output:
         outfile = "data/{tissue}/high_expressed_single_isoform_genes.txt"
+    wildcard_constraints:
+        tissue = "^((?!IVT_seq).)*$" # IVT_seq has manually selected transcript list
     resources:
         mem_mb = 4_000
     script:

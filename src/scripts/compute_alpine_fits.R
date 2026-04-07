@@ -51,6 +51,7 @@ selected.genes.and.transcripts <- read.csv(selected_transcripts_file, sep="\t")
 selected.txs = selected.genes.and.transcripts$transcript_id
 
 ebt0 <- exonsBy(txdb, by="tx")
+ebt0 <- keepSeqlevels(ebt0, standardChromosomes(ebt0), pruning.mode="coarse")
 ebt.fit <- ebt0[selected.txs]
 
 library(GenomicRanges)
