@@ -2,11 +2,11 @@ import sqlite3
 import numpy as np
 import polars as pl
 
-# Test values
-# transcripts_file = "data/testis/high_expressed_single_isoform_genes.txt"
-# sample_ids = ["SRX3357955", "SRX3357956"]
-# annotation_db = "data/Mus_musculus.GRCm38.102.gtf.sqlite"
-# out_full_cov = "temp.full_cov.txt"
+# Test value# 0
+# transcript# s_file = "data/testis/high_expressed_single_isoform_genes.txt"
+# sample_ids#  = ["SRX3357955", "SRX3357956"]
+# annotation# _db = "data/Mus_musculus.GRCm38.102.gtf.sqlite"
+# out_full_c# ov = "temp.full_cov.txt"
 # out_summed_cov = "temp.summed_cov.txt"
 
 transcripts_file = snakemake.input.transcripts
@@ -117,7 +117,7 @@ def get_value(pos, cov):
     )
 
 
-def get_cov_and_dupe(gene_id, cov, dupe_rate):
+def get_cov_and_dupe(gene_id, cov, dupe_rate, starts, duped_starts):
     tx_id = str(transcripts.filter(gene_id=gene_id)["transcript_id"][0])
     chrom = gene.filter(gene_id=gene_id)["seq_name"][0]
     these_exons = exons.join(tx2exon.filter(tx_id=tx_id), on="exon_id").sort(
@@ -144,11 +144,23 @@ def get_cov_and_dupe(gene_id, cov, dupe_rate):
     # and so we have to join_asof to find the right range
     this_cov = get_value(pos, cov)
     this_dupe_rate = get_value(pos, dupe_rate)
+    this_starts = get_value(pos, starts)
+    this_duped_starts = get_value(pos, duped_starts)
 
     both = (
         this_cov.select("pos", pl.col("value").alias("cov"))
         .join(
             this_dupe_rate.select("pos", pl.col("value").alias("dupe_rate")),
+            on="pos",
+            validate="1:1",
+        )
+        .join(
+            this_starts.select("pos", pl.col("value").alias("starts")),
+            on="pos",
+            validate="1:1",
+        )
+        .join(
+            this_duped_starts.select("pos", pl.col("value").alias("duped_starts")),
             on="pos",
             validate="1:1",
         )
@@ -166,6 +178,12 @@ for sample_id in sample_ids:
         f"data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed"
     )
     dupe_rate_file = f"data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.pcr_dupe_rate_coverage.bed"
+    starts_file = (
+        f"data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_starts.bed"
+    )
+    duped_starts_file = (
+        f"data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.duped_starts.bed"
+    )
 
     all_dupe_rate = pl.read_csv(
         dupe_rate_file,
@@ -181,10 +199,26 @@ for sample_id in sample_ids:
         separator="\t",
         dtypes=[pl.Utf8, pl.Int32, pl.Int32, pl.Int32],
     )
+    all_starts = pl.read_csv(
+        starts_file,
+        has_header=False,
+        new_columns=["chrom", "start", "end", "value"],
+        separator="\t",
+        dtypes=[pl.Utf8, pl.Int32, pl.Int32, pl.Int32],
+    )
+    all_duped_starts = pl.read_csv(
+        duped_starts_file,
+        has_header=False,
+        new_columns=["chrom", "start", "end", "value"],
+        separator="\t",
+        dtypes=[pl.Utf8, pl.Int32, pl.Int32, pl.Int32],
+    )
 
     for gene_id in transcripts["gene_id"]:
         temp.append(
-            get_cov_and_dupe(gene_id, all_coverage, all_dupe_rate).with_columns(
+            get_cov_and_dupe(
+                gene_id, all_coverage, all_dupe_rate, all_starts, all_duped_starts
+            ).with_columns(
                 sample_id=pl.lit(sample_id),
                 gene_id=pl.lit(gene_id),
             )

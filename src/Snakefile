@@ -527,12 +527,17 @@ rule pcr_dupe_rate_coverage:
         coverage = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed",
         duped_coverage = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.duped_coveage.bed",
         dupe_rate = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.pcr_dupe_rate_coverage.bed",
+        # The starts/ends files are just the count of reads (after deduping, or duped meaning at least two in their UMI group) by start or end locations
+        starts = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_starts.bed",
+        duped_starts = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.duped_starts.bed",
+        ends = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_ends.bed",
+        duped_ends = "data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.duped_ends.bed",
     params:
         paired = lambda wildcards: is_paired(wildcards.sample_id)
     resources:
         mem_mb = 12_000
     shell:
-        "./scripts/pcr_dupe_rate_coverage_plot.py --bam_file {input.bam} --chrom_lengths {input.chrom_lengths} --out_cov_file {output.coverage} --out_duped_file {output.duped_coverage} --out_dupe_rate_file {output.dupe_rate} --paired {params.paired}"
+        "./scripts/pcr_dupe_rate_coverage_plot.py --bam_file {input.bam} --chrom_lengths {input.chrom_lengths} --out_cov_file {output.coverage} --out_duped_file {output.duped_coverage} --out_dupe_rate_file {output.dupe_rate} --paired {params.paired} --out_starts_file {output.starts} --out_duped_starts_file {output.duped_starts} --out_ends_file {output.ends} --out_duped_ends_file {output.duped_ends}"
 
 rule get_pcr_dupe_rate_coverage:
     input:
