@@ -1,11 +1,20 @@
-import pathlib
 import sqlite3
 import numpy as np
 import polars as pl
 
-sample_ids = sorted(snakemake.params.sample_ids)
+# Test values
+# transcripts_file = "data/testis/high_expressed_single_isoform_genes.txt"
+# sample_ids = ["SRX3357955", "SRX3357956"]
+# annotation_db = "data/Mus_musculus.GRCm38.102.gtf.sqlite"
+# out_full_cov = "temp.full_cov.txt"
+# out_summed_cov = "temp.summed_cov.txt"
 
+transcripts_file = snakemake.input.transcripts
+sample_ids = sorted(snakemake.params.sample_ids)
 annotation_db = snakemake.input.annotation
+out_full_cov = snakemake.output.full_cov
+out_summed_cov = snakemake.output.summed_cov
+
 with sqlite3.connect(annotation_db) as conn:
     exons = pl.read_database("SELECT * FROM exon", conn)
     tx2exon = pl.read_database("SELECT * FROM tx2exon", conn)
@@ -14,7 +23,6 @@ with sqlite3.connect(annotation_db) as conn:
 
 
 # compile the list of transcripts we'll plot
-transcripts_file = snakemake.input.transcripts
 ## list in all the mitochondrial transcripts
 # mt_genes = gene.filter(pl.col("gene_name").str.starts_with("mt-"))["gene_id"]
 # mt_tx = tx.filter(pl.col("gene_id").is_in(mt_genes))
@@ -85,6 +93,30 @@ def gene_to_exon_pos(gene_id):
     return pos
 
 
+def get_value(pos, cov):
+    # Maps positions to an RLE-encoded coverage ala bed files
+    # assumes pos contains one gene on one chromosome
+    gene_end = pos["pos"].max()
+    gene_start = pos["pos"].min()
+    chrom = pos["chrom"][0]
+    small_cov = (
+        cov.filter(  # this turns out to much faster than letter Polars do the full join
+            pl.col("start") <= gene_end,
+            pl.col("end") >= gene_start,
+            chrom=chrom,
+        )
+    )
+    return (
+        pos.join_asof(
+            small_cov,
+            left_on="pos",
+            right_on="start",
+        )
+        .with_columns(pl.col("value").fill_null(0))
+        .select("pos", "chrom", "value")
+    )
+
+
 def get_cov_and_dupe(gene_id, cov, dupe_rate):
     tx_id = str(transcripts.filter(gene_id=gene_id)["transcript_id"][0])
     chrom = gene.filter(gene_id=gene_id)["seq_name"][0]
@@ -110,23 +142,8 @@ def get_cov_and_dupe(gene_id, cov, dupe_rate):
     # Find the read depth/dupe_rates for each position
     # note that the cov/dupe_rate files give a range (start-end)
     # and so we have to join_asof to find the right range
-    this_cov = pos.join_asof(
-        cov,
-        left_on="pos",
-        right_on="start",
-        by="chrom",
-    ).with_columns(
-        value=pl.when(pl.col("pos") >= pl.col("end"))
-        .then(0)
-        .otherwise(pl.col("value")),
-    )
-    this_dupe_rate = pos.join_asof(
-        dupe_rate, left_on="pos", right_on="start", by="chrom"
-    ).with_columns(
-        value=pl.when(pl.col("pos") >= pl.col("end"))
-        .then(0)
-        .otherwise(pl.col("value")),
-    )
+    this_cov = get_value(pos, cov)
+    this_dupe_rate = get_value(pos, dupe_rate)
 
     both = (
         this_cov.select("pos", pl.col("value").alias("cov"))
@@ -174,7 +191,7 @@ for sample_id in sample_ids:
         )
 
 data = pl.concat(temp)
-data.write_csv(snakemake.output.full_cov, separator="\t")
+data.write_csv(out_full_cov, separator="\t")
 
 summed_data = (
     # No actual summing for this dataset since only one library per sample
@@ -189,4 +206,4 @@ summed_data = (
     .sort(["transcript_id", "loc"])
     .with_columns(mask=pl.col("cov") > 100)
 )
-summed_data.write_csv(snakemake.output.summed_cov, separator="\t")
+summed_data.write_csv(out_summed_cov, separator="\t")
