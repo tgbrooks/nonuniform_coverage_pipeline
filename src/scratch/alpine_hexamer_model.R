@@ -61,7 +61,8 @@ get_exon_cds_info <- function(tx_id, ebt0) {
     return(exons2)
 }
 
-special_model_types <- c("hexamer", "pos_no_genelen", "pos_only", "GC", "hexamer_no_pos", "baseline")
+#special_model_types <- c("hexamer", "pos_no_genelen", "pos_only", "GC", "hexamer_no_pos", "baseline")
+special_model_types <- c("hexamer", "GC", "pos_only")
 sample_id <- "SRX11694510"
 model_cov <- lapply(
        special_model_types,
@@ -210,12 +211,14 @@ tab <- table(txdf$gene_id)
 ebt0 <- exonsBy(txdb, by="tx")
 
 high_exp_genes <- read_tsv("data/IVT_seq/high_expressed_single_isoform_genes.txt")
-select_genes <- c("BC011380")# used in Alpine paper
+select_genes <- c("BC011380", "BC013581", "BC016145")# first one was used in Alpine paper, all from test set
+gene_mean <- cov %>% filter(type == "actual") %>% group_by(transcript_id) %>% summarize(mean_cov = mean(cov))
 select_cov <- cov %>%
     filter(transcript_id %in% select_genes) %>%
+    left_join(gene_mean, "transcript_id") %>%
     group_by(sample_id, transcript_id) %>%
     left_join(high_exp_genes, by=join_by(transcript_id == transcript_id)) %>%
-    mutate(full_gene = paste0(gene_name, "\n", transcript_id)) %>%
+    mutate(full_gene = paste0(gene_name, "\n", transcript_id), cov_norm = cov / mean_cov) %>%
     ungroup()
 #exon_info <- lapply(
 #        select_genes,
@@ -226,7 +229,7 @@ select_cov <- cov %>%
 #    mutate(full_gene = paste0(gene_name, "\n", gene))
 ggplot(
         data = select_cov,
-        aes(x=pos / 1000, y=cov, color=type)
+        aes(x=pos / 1000, y=cov_norm, color=type)
     ) +
     facet_grid(
         #rows=vars(study),
@@ -260,7 +263,7 @@ ggplot(
     )
 ggsave(
     paste("results", "scratch", "alpine_hexamer_model.IVT_seq.png", sep="/"),
-    width = 5,
+    width = 9,
     height = 2.5,
 )
 
