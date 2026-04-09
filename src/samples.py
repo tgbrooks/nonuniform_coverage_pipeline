@@ -1259,6 +1259,11 @@ samples = [
     ###### IVT-SEQ #############
     {'ID': 'SRX341390', 'study': 'GSE50445','tissue': 'IVT_seq'},
 
+    ###### TGIRT-seq ###########
+    {"ID": "SRR8186008", "study": "PRJNA505326", "tissue": "TGIRT_seq"},
+    {"ID": "SRR8186009", "study": "PRJNA505326", "tissue": "TGIRT_seq"},
+    {"ID": "SRR8186011", "study": "PRJNA505326", "tissue": "TGIRT_seq"},
+
 ]
 
 for sample in samples:

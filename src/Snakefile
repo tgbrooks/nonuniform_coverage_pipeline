@@ -34,6 +34,7 @@ genome_by_tissue = {
     "mouse_muscle": genomes['GRCm38'],
     "smart_seq": genomes['GRCm38'],
     "IVT_seq": genomes['IVT_seq'],
+    "TGIRT_seq": genomes['GRCh38'],
 }
 gtf_by_name = {x['name']:x['gtf'] for x in genome_by_tissue.values()}
 
@@ -113,6 +114,7 @@ rule all:
         "results/transcript_coverage/UHR.transcript_coverage.txt.gz",
         "results/transcript_coverage/testis.transcript_coverage.txt.gz",
         "results/transcript_coverage/HBRR.transcript_coverage.txt.gz",
+        "results/transcript_coverage/TGIRT_seq.transcript_coverage.txt.gz",
         "results/coverage_type_comparison/liver/",
         expand("results/{tissue}/unannotated_splicing.txt", tissue = ["liver", "UHR", "UHR_degraded", "mouse_muscle"]),
         "results/liver/exon_effect/",
@@ -352,7 +354,7 @@ rule select_alpine_transcripts:
     output:
         outfile = "data/{tissue}/high_expressed_single_isoform_genes.txt"
     wildcard_constraints:
-        tissue = "^((?!IVT_seq).)*$" # IVT_seq has manually selected transcript list
+        tissue = "|".join(tissue for tissue in genome_by_tissue.keys() if tissue != "IVT_seq") # IVT_seq has manually selected transcript list
     resources:
         mem_mb = 4_000
     script:
