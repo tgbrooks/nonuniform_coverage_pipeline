@@ -22,47 +22,6 @@ with sqlite3.connect(annotation_db) as conn:
     tx = pl.read_database("SELECT * FROM tx", conn)
 
 
-# compile the list of transcripts we'll plot
-## list in all the mitochondrial transcripts
-# mt_genes = gene.filter(pl.col("gene_name").str.starts_with("mt-"))["gene_id"]
-# mt_tx = tx.filter(pl.col("gene_id").is_in(mt_genes))
-# transcripts = pl.concat(
-#    (
-#        # Hand-picked genes
-#        pl.DataFrame(
-#            {
-#                "gene_id": [
-#                    "ENSMUSG00000064339",
-#                    "ENSMUSG00000032554",
-#                    "ENSMUSG00000002985",
-#                    "ENSMUSG00000072849",
-#                    "ENSMUSG00000022868",
-#                    "ENSMUSG00000028001",
-#                    "ENSMUSG00000064337",
-#                    "ENSMUSG00000064370",
-#                    "ENSMUSG00000064345",
-#                ],
-#                "transcript_id": [
-#                    "ENSMUST00000082390",
-#                    "ENSMUST00000112645",
-#                    "ENSMUST00000174064",
-#                    "ENSMUST00000085054",
-#                    "ENSMUST00000023583",
-#                    "ENSMUST00000166581",
-#                    "ENSMUST00000082388",
-#                    "ENSMUST00000082421",
-#                    "ENSMUST00000082396",
-#                ],
-#            }
-#        ),
-#        # mitochondrial transcripts
-#        mt_tx.select("gene_id", pl.col("tx_id").alias("transcript_id")),
-#        # Our standard set of 100 single-isoform genes
-#        pl.read_csv(transcripts_file, separator="\t").select(
-#            "gene_id", "transcript_id"
-#        ),
-#    )
-# ).filter(pl.col("gene_id").is_first_distinct())
 transcripts = pl.read_csv(transcripts_file, separator="\t").select(
     "gene_id", "transcript_id"
 )
@@ -236,6 +195,8 @@ summed_data = (
         dupe_rate=(
             (pl.col("cov") * pl.col("dupe_rate")).sum() / pl.col("cov").sum()
         ).fill_nan(pl.lit(None)),
+        starts=pl.col("starts").sum(),
+        duped_starts=pl.col("duped_starts").sum(),
     )
     .sort(["transcript_id", "loc"])
     .with_columns(mask=pl.col("cov") > 100)
