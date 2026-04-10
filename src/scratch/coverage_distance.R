@@ -52,6 +52,14 @@ ggplot(data, aes(x = study2, y = cov_corr, color = study2, shape = within)) +
     #ylim(0.7, 1.0)
 ggsave("results/scratch/UHR.coverage_distance.png", width=5, height=5)
 
+# Summarize range of correlation values
+message("UHR SEQC WITHIN range:")
+message( data |> filter(within=='within', study1 != "SEQC", study2 != "SEQC") |> summarize(max=max(cov_corr), min=min(cov_corr)) |> capture.output() |> paste0(collapse = "\n"))
+message("UHR SEQC BETWEEN range: ")
+message( data |> filter(within=='between', study1 !="SEQC", study2 != "SEQC") |> summarize(max=max(cov_corr), min=min(cov_corr)) |> capture.output() |> paste0(collapse = "\n"))
+message("UHR SEQC SITE (SEQUENCER) WITHIN range: ")
+message( data |> filter(within=='between', study1=="SEQC") |> summarize(max=max(cov_corr), min=min(cov_corr)) |> capture.output() |> paste0(collapse = "\n"))
+
 ### SIMPLIFIED GLOBAL CORRELATION UHR - NO FACETS
 ggplot(data, aes(x = study2, y = cov_corr, color=within)) +
     geom_jitter(
@@ -130,3 +138,9 @@ ggplot(data, aes(x = study1, y = cov_corr, color=within)) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
     #ylim(0.6, 1.0)
 ggsave("results/scratch/liver.simple.coverage_distance.png", width=3, height=3)
+
+# Summarize range of correlation values
+message("LIVER SEQC WITHIN range:")
+message( data |> filter(within=='within') |> summarize(max=max(cov_corr), min=min(cov_corr)) |> capture.output() |> paste0(collapse = "\n"))
+message("LIVER SEQC BETWEEN range: ")
+message( data |> filter(within=='between') |> summarize(max=max(cov_corr), min=min(cov_corr)) |> capture.output() |> paste0(collapse = "\n"))
