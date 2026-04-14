@@ -1,23 +1,26 @@
 #options(error = function() traceback(10))
+# NOTE: this file currently does not run using our usual container image
+# instead we run it manually with module load R/4.3
 
 library(BSgenome)
 library(ensembldb)
 library(stringr)
 library(r2r)
 
-#sample_id <- "SRX16386863"
-#readlength <- 151
-#modelfile <- "results/alpine_rnafold/SRX16386863/model.rda"
-#ensembldb_sqlite <- "data/Mus_musculus.GRCm38.102.gtf.sqlite"
-#transcript_file <- "data/liver/high_expressed_single_isoform_genes.txt"
+# Hard coded for just liver
+readlength <- 151
+ensembldb_sqlite <- "data/Mus_musculus.GRCm38.102.gtf.sqlite"
+transcript_file <- "data/liver/high_expressed_single_isoform_genes.txt"
+BSgenome <- "BSgenome.Mmusculus.UCSC.mm10"
+outfile <- "data/liver/alpine_rnafold.fragtypes.rda"
 
 RNA_FOLD_RESOLUTION <- 25
 
-sample_id <- snakemake@wildcards$sample_id
-readlength <- snakemake@params$readlength 
-modelfile <- snakemake@output$modelfile
-ensembldb_sqlite <- snakemake@input$ensdb
-transcript_file <- snakemake@input$transcripts
+#readlength <- snakemake@params$readlength 
+#ensembldb_sqlite <- snakemake@input$ensdb
+#transcript_file <- snakemake@input$transcripts
+#BSgenome <- snakemake@params$BSgenome
+#outfile <- snakemake@output$fragtypes
 
 txdb <- EnsDb(ensembldb_sqlite)
 txdf <- transcripts(txdb, return.type="DataFrame")
@@ -40,8 +43,8 @@ gene.names <- names(ebt.fit)
 names(gene.names) <- gene.names
 
 # Load the BSgenome for our species
-library(snakemake@params$BSgenome, character.only=TRUE)
-if (snakemake@params$BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
+library(BSgenome, character.only=TRUE)
+if (BSgenome == "BSgenome.Hsapiens.UCSC.hg38") {
     my_genome <- BSgenome.Hsapiens.UCSC.hg38
 } else {
     my_genome <- BSgenome.Mmusculus.UCSC.mm10
@@ -125,26 +128,23 @@ buildFragtypes <- function (exons, genome, readlength, minsize, maxsize, gc = TR
     }
     if (RNAfold) {
       mfe_store <- hashmap() # Memoized RNAfold MFE values
-      mfe_per_nt <- apply(
-        fragtypes,
-        1,
-        function (frag) {
-          # Round to the specified resolution
-          round_start <- round(frag$start/RNA_FOLD_RESOLUTION)*RNA_FOLD_RESOLUTION
-          round_end <- min(round(frag$end/RNA_FOLD_RESOLUTION)*RNA_FOLD_RESOLUTION, length(tx.dna))
+      temp <- list()
+      for (i in seq(nrow(fragtypes))) {
+          frag_start <- fragtypes$start[[i]]
+          frag_end <- fragtypes$end[[i]]
+          round_start <- round(frag_start/RNA_FOLD_RESOLUTION)*RNA_FOLD_RESOLUTION
+          round_end <- min(round(frag_end/RNA_FOLD_RESOLUTION)*RNA_FOLD_RESOLUTION, length(tx.dna))
           if (is.null(mfe_store[[c(round_start, round_end)]])) {
             # Compute value
-            print(paste("Computing for", round_start, round_end))
             frag.dna <- as.character(tx.dna[round_start:round_end])
             mfe_per_nt <- RNAfold(frag.dna) / (round_end - round_start + 1)
             mfe_store[[c(round_start, round_end)]] <- mfe_per_nt
           } else {
             mfe_per_nt <- mfe_store[[c(round_start, round_end)]] # use memoized value
           }
-          return(mfe_per_nt)
-        }
-      )
-      fragtypes$MFE_per_nt <- mfe_per_nt
+          temp[[i]] <- mfe_per_nt
+      }
+      fragtypes$MFE_per_nt <- unlist(temp)
     }
     fragtypes$gstart <- alpine:::txToGenome(fragtypes$start, map)
     fragtypes$gend <- alpine:::txToGenome(fragtypes$end, map)
@@ -174,4 +174,4 @@ for(gene in names(fragtypes)) {
 }
 
 
-saveRDS(fragtypes, snakemake@output$fragtypes)
+saveRDS(fragtypes, outfile)

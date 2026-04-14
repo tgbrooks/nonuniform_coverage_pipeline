@@ -395,10 +395,11 @@ rule run_alpine:
         "scripts/run_alpine.R"
 
 rule gen_alpine_rnafold_fragtypes:
+# NOTE: this has to be run manually, it can't run in the container and requires module load R/4.3
     input:
         ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
         transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
-        sif = "images/alpine.sif",
+        sif = "images/alpine.sif"
     output:
         fragtypes = "data/{tissue}/alpine_rnafold.fragtypes.rda",
     params:
@@ -415,8 +416,8 @@ rule run_alpine_rnafold:
     input:
         bam = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam",
         bai = "data/{sample_id}/bam/Aligned.sortedByCoord.out.bam.bai",
-        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
-        transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/high_expressed_single_isoform_genes.txt",
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[samples_by_id[wildcards.sample_id]['tissue']]['name']}.gtf.sqlite",
+        transcripts = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/training_set_transcripts.txt",
         fragtypes = lambda wildcards: f"data/{samples_by_id[wildcards.sample_id]['tissue']}/alpine_rnafold.fragtypes.rda",
         dummy = "data/{sample_id}/processed_fastqs",
         sif = "images/alpine.sif",
