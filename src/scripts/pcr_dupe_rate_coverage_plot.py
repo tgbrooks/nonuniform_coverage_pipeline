@@ -45,7 +45,14 @@ parser.add_argument(
     default=None,
 )
 parser.add_argument(
-    "--paired", help="Whether reads are paired ('True' or 'False')", type=str
+    "--paired",
+    help="Whether reads are paired ('True' or 'False')",
+    type=str,
+)
+parser.add_argument(
+    "--strandedness",
+    help="Whether the first read is on the forward or reverse strand of the RNA",
+    default=None,
 )
 
 args = parser.parse_args()
@@ -58,6 +65,10 @@ chrom_lengths_file = args.chrom_lengths
 out_cov_file = args.out_cov_file
 out_duped_file = args.out_duped_file
 out_dupe_rate_file = args.out_dupe_rate_file
+strandedness = args.strandedness
+assert strandedness in ["forward", "reverse", "unstranded"]
+
+paired = {"True": True, "False": False}[args.paired]
 
 # Clear the output files in-case, since we'll be appending to them as we go
 with open(out_cov_file, "wt"):
@@ -88,10 +99,8 @@ read_ends = np.zeros(1, np.int32)
 duped_ends = np.zeros(1, np.int32)
 
 # Map UMI groups to dupe counts
-groups_encountered = set()
+groups_encountered = dict()
 groups_encountered_twice = set()
-
-paired = {"True": True, "False": False}[args.paired]
 
 
 def pair_blocks(first, second):
@@ -213,7 +222,7 @@ with pysam.AlignmentFile(bam_file, "rb") as bam:
             duped_starts = np.zeros(chrom_length + 1, np.int32)
             read_ends = np.zeros(chrom_length + 1, np.int32)
             duped_ends = np.zeros(chrom_length + 1, np.int32)
-            groups_encountered = set()
+            groups_encountered = dict()
 
         if read.is_secondary:
             continue
@@ -239,20 +248,51 @@ with pysam.AlignmentFile(bam_file, "rb") as bam:
             except KeyError:
                 raise Exception(f"The read {read.query_name} had no UMI group tag")
 
+        if strandedness == "forward":
+            forward = (read.is_reverse and read.is_read1) or (
+                (not read.is_reverse) and read.is_read2
+            )
+        elif strandedness == "reverse":
+            forward = ((not read.is_reverse) and read.is_read1) or (
+                read.is_reverse and read.is_read2
+            )
+        else:
+            # Unstranded, unknown which read end had the initial priming site
+            # This effectively just uses the earlier genomic location as the start
+            forward = True
+
         if umi_group not in groups_encountered:
             # First time encountering this group
-            groups_encountered.add(umi_group)
-            for s, e in pair_blocks(other, read):
+            # store it's blocks incase we encounter it again
+            # and mark it as a deduped read at this location
+            blocks = tuple(pair_blocks(other, read))
+            groups_encountered[umi_group] = blocks
+            for s, e in blocks:
                 read_counts[s:e] += 1
-                read_starts[s] += 1
-                read_ends[e] += 1
+            if forward:
+                start = blocks[0][START]
+                end = blocks[-1][END]
+            else:
+                start = blocks[-1][END]
+                end = blocks[0][START]
+            read_starts[start] += 1
+            read_ends[end] += 1
         elif umi_group not in groups_encountered_twice:
             # This group contains a duplicate
+            # use the blocks from the first encounter, since sometimes later reads differ slightly
+            # e.g., due to a soft-clipping of a base due to a read error in one dupe but not the other
+            blocks = groups_encountered[umi_group]
             groups_encountered_twice.add(umi_group)
-            for s, e in pair_blocks(other, read):
+            for s, e in blocks:
                 duped_counts[s:e] += 1
-                duped_starts[s] += 1
-                duped_ends[e] += 1
+            if forward:
+                start = blocks[0][START]
+                end = blocks[-1][END]
+            else:
+                start = blocks[-1][END]
+                end = blocks[0][START]
+            duped_starts[start] += 1
+            duped_ends[end] += 1
         else:
             # Do nothing - we have already counted this group *and* marked it as containing a duplicate
             pass
