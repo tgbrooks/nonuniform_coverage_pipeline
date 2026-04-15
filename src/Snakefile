@@ -554,7 +554,7 @@ rule get_pcr_dupe_rate_coverage:
         full_cov = "results/{tissue}/pcr_dupe_rate_coverage.by_samples.txt",
         summed_cov = "results/{tissue}/pcr_dupe_rate_coverage.aggregated.txt",
     params:
-      sample_ids = lambda wildcards: samples_by_tissue[wildcards.tissue]
+      sample_ids = lambda wildcards: samples_by_tissue[wildcards.tissue],
     resources:
         mem_mb = 24_000
     script:

@@ -1,13 +1,9 @@
-import pathlib
 import sqlite3
 import numpy as np
 import polars as pl
-import matplotlib as mpl
-import matplotlib.pyplot as pyplot
 
 annotation_db = snakemake.input.annotation
 transcripts_file = snakemake.input.transcripts
-library_ids = snakemake.params.library_ids
 sample_ids = snakemake.params.sample_ids
 
 
@@ -24,35 +20,35 @@ mt_genes = gene.filter(pl.col("gene_name").str.starts_with("mt-"))["gene_id"]
 mt_tx = tx.filter(pl.col("gene_id").is_in(mt_genes))
 transcripts = pl.concat(
     (
-        # Hand-picked genes
-        pl.DataFrame(
-            {
-                "gene_id": [
-                    "ENSMUSG00000064339",
-                    "ENSMUSG00000032554",
-                    "ENSMUSG00000002985",
-                    "ENSMUSG00000072849",
-                    "ENSMUSG00000022868",
-                    "ENSMUSG00000028001",
-                    "ENSMUSG00000064337",
-                    "ENSMUSG00000064370",
-                    "ENSMUSG00000064345",
-                ],
-                "transcript_id": [
-                    "ENSMUST00000082390",
-                    "ENSMUST00000112645",
-                    "ENSMUST00000174064",
-                    "ENSMUST00000085054",
-                    "ENSMUST00000023583",
-                    "ENSMUST00000166581",
-                    "ENSMUST00000082388",
-                    "ENSMUST00000082421",
-                    "ENSMUST00000082396",
-                ],
-            }
-        ),
-        # mitochondrial transcripts
-        mt_tx.select("gene_id", pl.col("tx_id").alias("transcript_id")),
+        ## Hand-picked genes
+        # pl.DataFrame(
+        #    {
+        #        "gene_id": [
+        #            "ENSMUSG00000064339",
+        #            "ENSMUSG00000032554",
+        #            "ENSMUSG00000002985",
+        #            "ENSMUSG00000072849",
+        #            "ENSMUSG00000022868",
+        #            "ENSMUSG00000028001",
+        #            "ENSMUSG00000064337",
+        #            "ENSMUSG00000064370",
+        #            "ENSMUSG00000064345",
+        #        ],
+        #        "transcript_id": [
+        #            "ENSMUST00000082390",
+        #            "ENSMUST00000112645",
+        #            "ENSMUST00000174064",
+        #            "ENSMUST00000085054",
+        #            "ENSMUST00000023583",
+        #            "ENSMUST00000166581",
+        #            "ENSMUST00000082388",
+        #            "ENSMUST00000082421",
+        #            "ENSMUST00000082396",
+        #        ],
+        #    }
+        # ),
+        ## mitochondrial transcripts
+        # mt_tx.select("gene_id", pl.col("tx_id").alias("transcript_id")),
         # Our standard set of 100 single-isoform genes
         pl.read_csv(transcripts_file, separator="\t").select(
             "gene_id", "transcript_id"
@@ -170,8 +166,8 @@ def read_bed(file):
 
 # Load the data and transform it into a single dataframe
 temp = []
-for library_id, sample_id in zip(library_ids, sample_ids):
-    print(f"{library_id} {sample_id}")
+for sample_id in sample_ids:
+    print(sample_id)
     coverage_file = (
         f"data/{sample_id}/pcr_dupe_rate_coverage/{sample_id}.deduped_coverage.bed"
     )
@@ -197,7 +193,7 @@ for library_id, sample_id in zip(library_ids, sample_ids):
                 all_starts,
                 all_duped_starts,
             ).with_columns(
-                library_id=pl.lit(library_id),
+                sample_id=pl.lit(sample_id),
                 gene_id=pl.lit(gene_id),
             )
         )

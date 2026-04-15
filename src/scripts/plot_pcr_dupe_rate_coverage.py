@@ -20,9 +20,15 @@ cycle_counts_by_id = dict(zip(sample_data["ID"], sample_data["cycle_count"]))
 print(cycle_counts_by_id)
 
 
-data = pl.read_csv(
-    f"results/{tissue}/pcr_dupe_rate_coverage.aggregated.txt", separator="\t"
-).join(sample_data, left_on="sample_id", right_on="ID")
+data = (
+    pl.read_csv(
+        f"results/{tissue}/pcr_dupe_rate_coverage.by_samples.txt", separator="\t"
+    )
+    .join(sample_data, left_on="sample_id", right_on="ID")
+    .with_columns(
+        mask=pl.col("cov") > 100,
+    )
+)
 sample_ids = sorted(data["sample_id"].unique())
 
 if tissue == "testis":
