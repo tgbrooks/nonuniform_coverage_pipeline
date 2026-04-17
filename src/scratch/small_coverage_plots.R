@@ -144,11 +144,10 @@ ggplot(
         data = select_cov,
         aes(x=pos / 1000, y=cov_norm)
     ) +
-    #facet_grid(
-    #    rows=vars(study),
-    #    cols=vars(full_gene),
-    #    scales = "free",
-    #) +
+    facet_grid(
+        cols = vars(full_gene),
+        scales = "free",
+    ) +
     geom_path(
         aes(color = study, group=sample_id, linewidth=sample_num),
     ) +
@@ -260,11 +259,10 @@ ggplot(
         data = select_cov,
         aes(x=pos / 1000, y=cov_norm)
     ) +
-    #facet_grid(
-    #    rows=vars(study),
-    #    cols=vars(full_gene),
-    #    scales = "free",
-    #) +
+    facet_grid(
+        cols = vars(full_gene),
+        scales = "free",
+    ) +
     geom_path(
         aes(color = site, group=sample_id, linewidth=library_id),
     ) +
