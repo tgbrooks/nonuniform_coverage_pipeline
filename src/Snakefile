@@ -119,7 +119,7 @@ rule all:
         expand("results/{tissue}/unannotated_splicing.txt", tissue = ["liver", "UHR", "UHR_degraded", "mouse_muscle"]),
         "results/liver/exon_effect/",
         #"results/alpine_rnafold_fits/liver/",
-        #lambda wildcards: expand("data/{sample_id}/alpine_rnafold.model.rda", sample_id = [id for id in samples_by_tissue['liver'] if can_alpine(id)]),
+        "data/SRX16386864/alpine_rnafold.model.rda",
         #"results/alpine_fits.hexamer_only/liver/SRX16386864.coverage_table.txt", # one sample for hexamer-only
         expand("results/alpine_fits{model_type}/liver/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX11694510","SRX16386864"]),
         expand("results/alpine_fits{model_type}/IVT_seq/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX341390"]),
