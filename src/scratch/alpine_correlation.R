@@ -24,7 +24,6 @@ coverage <- bind_rows(temp)
 
 sample_ids <- sample_ids[sample_ids %in% coverage$sample_id]
 
-### COMPUTE SMOOTED COVERAGE
 HIGH_EXPRESSION_THRESHOLD <- 50
 
 
@@ -49,3 +48,35 @@ results <- bind_rows(temp)
 
 print(results)
 
+
+##### COMPARE WITH THE RNAfold-predictor MODEL only run on one sample
+alpine <- read_tsv("results/alpine_fits/liver/SRX16386864.coverage_table.txt")
+rnafold <- read_tsv("results/alpine_rnafold_fits/liver/SRX16386864.coverage_table.txt")
+both <- alpine |>
+    left_join(
+        rnafold |> select(sample, gene, pos, rnafold_predicted=predicted),
+        c("sample", "gene", "pos"),
+    ) |>
+    group_by(sample, gene) |>
+    mutate(mean_cov = mean(actual)) |>
+    ungroup() |>
+    filter(
+           actual >= HIGH_EXPRESSION_THRESHOLD,
+        !(gene %in% training_transcripts$transcript_id)
+    )
+res <- cor.test(
+    both$predicted / both$mean_cov,
+    both$rnafold_predicted / both$mean_cov,
+)$estimate
+message("RNAfold prediction vs regular alpine prediction correlation: ", res)
+
+res_rnafold <- cor.test(
+    both$actual / both$mean_cov,
+    both$rnafold_predicted / both$mean_cov,
+)$estimate
+res_regular <- cor.test(
+    both$actual / both$mean_cov,
+    both$predicted / both$mean_cov,
+)$estimate
+message("RNA fold prediction vs actual correlation: ", res_rnafold)
+message("Regular alpine prediction vs actual correlation: ", res_regular)

@@ -120,6 +120,7 @@ rule all:
         "results/liver/exon_effect/",
         #"results/alpine_rnafold_fits/liver/",
         "data/SRX16386864/alpine_rnafold.model.rda",
+        "results/alpine_rnafold_fits/liver/SRX16386864.coverage_table.txt",
         #"results/alpine_fits.hexamer_only/liver/SRX16386864.coverage_table.txt", # one sample for hexamer-only
         expand("results/alpine_fits{model_type}/liver/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX11694510","SRX16386864"]),
         expand("results/alpine_fits{model_type}/IVT_seq/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX341390"]),
@@ -465,6 +466,29 @@ rule compute_alpine_fits:
         "images/alpine.sif"
     script:
         "scripts/compute_alpine_fits.R"
+
+rule compute_alpine_fits_rnafold:
+    # RNAfold Alpine models are computed separately from other models because
+    # they use a different fragtypes object which is very slow to compute
+    input:
+        bam = ["data/{sample_id}/bam/Aligned.sortedByCoord.out.bam"],
+        models = ["data/{sample_id}/alpine_rnafold.model.rda"],
+        ensdb = lambda wildcards: f"data/{genome_by_tissue[wildcards.tissue]['name']}.gtf.sqlite",
+        transcripts = "data/{tissue}/high_expressed_single_isoform_genes.txt",
+        fragtypes = "data/{tissue}/alpine_rnafold.fragtypes.rda",
+        dummy = "data/{sample_id}/processed_fastqs",
+        sif = "images/alpine.sif",
+    output:
+        outfile = "results/alpine_rnafold_fits/{tissue}/{sample_id}.coverage_table.txt",
+    params:
+        BSgenome = lambda wildcards: genome_by_tissue[wildcards.tissue]['BSgenome'],
+        readlength = lambda wildcards: get_readlen(wildcards.sample_id),
+    resources:
+        mem_mb = 46_000,
+    container:
+        "images/alpine.sif"
+    script:
+        "scripts/compute_alpine_rnafold_fits.R"
 
 rule plot_alpine_fits:
     input:
