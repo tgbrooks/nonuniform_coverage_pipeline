@@ -112,6 +112,7 @@ rule all:
         "results/transcript_coverage_plots/human_PBMCs/",
         "results/transcript_coverage/smart_seq.transcript_coverage.txt.gz",
         "results/transcript_coverage/UHR.transcript_coverage.txt.gz",
+        "results/transcript_coverage/UHR_PCR.transcript_coverage.txt.gz",
         "results/transcript_coverage/testis.transcript_coverage.txt.gz",
         "results/transcript_coverage/HBRR.transcript_coverage.txt.gz",
         "results/transcript_coverage/TGIRT_seq.transcript_coverage.txt.gz",
@@ -123,7 +124,7 @@ rule all:
         "results/alpine_rnafold_fits/liver/SRX16386864.coverage_table.txt",
         #"results/alpine_fits.hexamer_only/liver/SRX16386864.coverage_table.txt", # one sample for hexamer-only
         expand("results/alpine_fits{model_type}/liver/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX11694510","SRX16386864"]),
-        expand("results/alpine_fits{model_type}/IVT_seq/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX341390"]),
+        #expand("results/alpine_fits{model_type}/IVT_seq/{sample_id}.coverage_table.txt", model_type=["hexamer", "GC", "hexamer_no_pos", "pos_only", "pos_no_genelen", "baseline"], sample_id=["SRX341390"]),
         #"results/alpine_fits/IVT_seq/SRX341390.coverage_table.txt",
         "results/testis/pcr_dupe_rate_coverage_plot/",
         "results/UHR_PCR/pcr_dupe_rate_coverage_plot/",
