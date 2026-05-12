@@ -247,3 +247,104 @@ ggplot(perm_p_values) +
     labs(x = "permutation p-value") +
     ggtitle("Permutation p-values per gene and sample")
 ggsave(paste0(outdir, '/exon_effect_perm_ps.png'))
+
+
+######################################################################
+### Plot an example of what the exon effect model is
+### using coverage from a real gene
+select_genes <- c("ENSMUST00000025218") # for paper v2
+select_cov <- cov_table[cov_table$gene %in% select_genes,] %>%
+    left_join(sample_info, by=join_by(sample == ID)) %>%
+    group_by(sample, gene) %>%
+    mutate(rel_read_depth = actual / max(actual)) %>%
+    arrange(study) %>%
+    ungroup() %>%
+    left_join(high_exp_genes, by=join_by(gene == transcript_id)) %>%
+    mutate(full_gene = paste0(gene_name, "\n", gene)) |>
+    filter(sample == "SRX13396189")
+this_exon_info <- lapply(
+        select_genes,
+        function(gene) { get_exon_cds_info(gene) |> mutate(gene = gene) }
+    ) |>
+    bind_rows() |>
+    left_join(high_exp_genes, join_by(gene == transcript_id)) |>
+    mutate(full_gene = paste0(gene_name, "\n", gene)) |>
+    cross_join(
+        # need one copy per study
+        sample_info |>
+            filter(study %in% select_cov$study) |>
+            select(study) |>
+            distinct()
+    )
+# Compute the exon models just for this data
+bp_exon_info <- exon_info |>
+    filter(tx_id %in% select_genes) |>
+    group_by(tx_id, exon_number, type, exon_id, exon_start, exon_end) |>
+    reframe(
+        pos = seq(exon_start, exon_end)
+    )
+
+# Select subset of positions for modelling at for efficiency
+chosen_positions <- bp_exon_info |>
+    group_by(tx_id, exon_number) |>
+    sample_n(10, replace=TRUE) |>
+    distinct() |>
+    ungroup()
+
+# Join positions with coverage
+model_data <- chosen_positions |>
+    select(tx_id, exon_id, pos) |>
+    left_join(cov_table, join_by(tx_id == gene, pos == pos), relationship="many-to-many") |>
+    drop_na(sample)
+
+# Perform linear models
+res <- lm(actual ~ as.factor(exon_id), model_data)
+fitted <- predict(res, newdata=bp_exon_info)
+fitted_df <- tibble(
+    pos = bp_exon_info$pos,
+    tx_id = bp_exon_info$tx_id,
+    fit = fitted,
+    rel_fit = fitted / max(select_cov$actual)
+)
+
+ggplot(
+        data = select_cov,
+        aes(x=pos / 1000, y=rel_read_depth)
+    ) +
+    facet_grid(
+        rows=vars(study),
+        cols=vars(full_gene),
+        scales = "free",
+    ) +
+    geom_path() +
+    # the exon annotation layer
+    geom_rect(
+        aes(
+            xmin = exon_start/1000,
+            xmax = exon_end/1000,
+            ymin=case_match(type, "utr"~-0.075, "cds"~-0.1),
+            ymax=case_match(type, "utr"~-0.025, "cds"~0.0),
+            fill=as.factor(parity)),
+        data = this_exon_info,
+        show.legend=FALSE,
+        inherit.aes=FALSE,
+    ) + 
+    geom_line(
+        aes(y=rel_fit),
+        data = fitted_df,
+        color='red',
+    )+
+    labs(
+        x = "Position (kb)",
+        y = "Normalized read depth",
+    ) +
+    scale_fill_manual(values=c("#888", "#444")) + 
+    theme(
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank()
+    )
+ggsave(
+    paste(outdir, "exon_effect.coverage_example.png", sep="/"),
+    width = 4,
+    height = 2.5,
+)
